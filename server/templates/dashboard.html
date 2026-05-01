@@ -11,12 +11,12 @@
 {% set cnt_interrupted = recordings | selectattr("status", "equalto", "interrupted") | list | length %}
 
 <div class="stats-bar">
-  <div class="stat"><div class="label">Total</div><div class="value default">{{ recordings | length }}</div></div>
-  <div class="stat"><div class="label">Uploading</div><div class="value blue">{{ cnt_uploading }}</div></div>
-  <div class="stat"><div class="label">Completed</div><div class="value green">{{ cnt_completed }}</div></div>
-  <div class="stat"><div class="label">Pending</div><div class="value default">{{ cnt_pending }}</div></div>
-  <div class="stat"><div class="label">Failed</div><div class="value red">{{ cnt_failed }}</div></div>
-  <div class="stat"><div class="label">Interrupted</div><div class="value orange">{{ cnt_interrupted }}</div></div>
+  <div class="stat"><div class="label">Total</div><div id="stat-total" class="value default">{{ recordings | length }}</div></div>
+  <div class="stat"><div class="label">Uploading</div><div id="stat-uploading" class="value blue">{{ cnt_uploading }}</div></div>
+  <div class="stat"><div class="label">Completed</div><div id="stat-completed" class="value green">{{ cnt_completed }}</div></div>
+  <div class="stat"><div class="label">Pending</div><div id="stat-pending" class="value default">{{ cnt_pending }}</div></div>
+  <div class="stat"><div class="label">Failed</div><div id="stat-failed" class="value red">{{ cnt_failed }}</div></div>
+  <div class="stat"><div class="label">Interrupted</div><div id="stat-interrupted" class="value orange">{{ cnt_interrupted }}</div></div>
 </div>
 
 {# ── Filters ───────────────────────────────────────────────────────────────── #}
@@ -46,6 +46,7 @@
 </form>
 
 {# ── Table ─────────────────────────────────────────────────────────────────── #}
+<div id="table-container">
 {% if recordings %}
 <table>
   <thead>
@@ -60,7 +61,7 @@
       <th>Registered</th>
     </tr>
   </thead>
-  <tbody>
+  <tbody id="recordings-tbody">
     {% for rec in recordings %}
     <tr>
       <td class="name-cell">{{ rec.name }}</td>
@@ -112,5 +113,99 @@
   <p>No recordings found{% if filter_robot or filter_status %} matching the current filters{% endif %}.</p>
 </div>
 {% endif %}
+</div>
+
+<script>
+(function () {
+  const INTERVAL_MS = 1000;
+
+  // Active filter values are baked in by the server on initial render
+  const filterRobot  = {{ filter_robot  | tojson }};
+  const filterStatus = {{ filter_status | tojson }};
+
+  function fmtSize(bytes) {
+    if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(2) + ' GB';
+    if (bytes >= 1048576)    return (bytes / 1048576).toFixed(1)    + ' MB';
+    return                          (bytes / 1024).toFixed(1)        + ' KB';
+  }
+
+  function fmtHMS(totalSeconds) {
+    if (totalSeconds == null) return '—';
+    const s = Math.floor(totalSeconds);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0');
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return d.getFullYear() + '-' +
+      String(d.getMonth()+1).padStart(2,'0') + '-' +
+      String(d.getDate()).padStart(2,'0') + ' ' +
+      String(d.getHours()).padStart(2,'0') + ':' +
+      String(d.getMinutes()).padStart(2,'0');
+  }
+
+  function progressCell(rec) {
+    if (rec.status === 'uploading' && rec.progress_pct != null) {
+      const pct = rec.progress_pct.toFixed(1);
+      return `<progress max="100" value="${pct}"></progress><span class="progress-label">${pct}%</span>`;
+    }
+    if (rec.status === 'completed') {
+      return `<progress max="100" value="100"></progress><span class="progress-label">100%</span>`;
+    }
+    return `<span class="dim">—</span>`;
+  }
+
+  function buildRow(rec) {
+    return `<tr>
+      <td class="name-cell">${rec.name}</td>
+      <td class="robot-cell">${rec.robot_name}</td>
+      <td class="mono">${fmtSize(rec.size_bytes)}</td>
+      <td class="mono">${fmtHMS(rec.duration_seconds)}</td>
+      <td><span class="badge badge-${rec.status}">${rec.status}</span></td>
+      <td>${progressCell(rec)}</td>
+      <td class="mono">${rec.status === 'uploading' ? fmtHMS(rec.eta_seconds) : '<span class="dim">—</span>'}</td>
+      <td class="mono" style="font-size:0.78rem;color:#64748b;">${fmtDate(rec.registered_at)}</td>
+    </tr>`;
+  }
+
+  async function refresh() {
+    let url = '/recordings';
+    const params = new URLSearchParams();
+    if (filterRobot)  params.set('robot',  filterRobot);
+    if (filterStatus) params.set('status', filterStatus);
+    if ([...params].length) url += '?' + params.toString();
+
+    let data;
+    try {
+      const resp = await fetch(url, { headers: { Accept: 'application/json' } });
+      if (!resp.ok) return;
+      data = await resp.json();
+    } catch { return; }
+
+    // Update stats
+    const counts = { total: 0, uploading: 0, completed: 0, pending: 0, failed: 0, interrupted: 0 };
+    data.forEach(r => { counts.total++; counts[r.status] = (counts[r.status] || 0) + 1; });
+    for (const [key, val] of Object.entries(counts)) {
+      const el = document.getElementById('stat-' + key);
+      if (el) el.textContent = val;
+    }
+
+    // Update table
+    const tbody = document.getElementById('recordings-tbody');
+    if (tbody) {
+      tbody.innerHTML = data.map(buildRow).join('');
+    } else if (data.length > 0) {
+      // Table didn't exist on initial load (empty state) — reload once to get the full structure
+      location.reload();
+    }
+  }
+
+  setInterval(refresh, INTERVAL_MS);
+})();
+</script>
 
 {% endblock %}
