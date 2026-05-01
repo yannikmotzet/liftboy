@@ -1,0 +1,11 @@
+[liftboy]
+db_path   = "./liftboy.db"
+host      = "0.0.0.0"
+port      = 8000
+log_level = "info"
+# Recordings stuck in "uploading" with no heartbeat longer than this are
+# automatically transitioned to "interrupted". The client reports progress
+# roughly every 1-2 seconds, so 15 seconds gives ample margin while still
+# detecting a dead client quickly. The server checks every timeout/3 seconds
+# (minimum 5 s), so detection latency is at most ~timeout + check_interval.
+upload_stale_timeout_seconds = 15

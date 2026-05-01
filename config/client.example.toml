@@ -1,0 +1,9 @@
+[liftboy]
+server_url          = "http://192.168.1.100:8000"
+storage_path        = "/data/recordings"
+network_path        = "/mnt/nas/recordings"
+delete_after_upload = true
+
+[rsync]
+# Optional: bandwidth limit in KB/s (0 = unlimited)
+# bwlimit = 50000
