@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="refresh" content="5">
+  <title>{% block title %}Liftboy{% endblock %}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+    header {
+      background: #1a1d27;
+      border-bottom: 1px solid #2d3148;
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    header h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #7c85ff;
+      letter-spacing: 0.05em;
+    }
+    header .subtitle {
+      color: #64748b;
+      font-size: 0.85rem;
+    }
+    main { padding: 2rem; }
+
+    .filters {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+    .filters label { font-size: 0.8rem; color: #94a3b8; display: block; margin-bottom: 0.3rem; }
+    .filters select, .filters input {
+      background: #1a1d27;
+      border: 1px solid #2d3148;
+      color: #e2e8f0;
+      padding: 0.45rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      min-width: 150px;
+    }
+    .filters button {
+      background: #7c85ff;
+      color: #fff;
+      border: none;
+      padding: 0.45rem 1.2rem;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      cursor: pointer;
+    }
+    .filters button:hover { background: #6366f1; }
+    .filters a.reset {
+      color: #64748b;
+      font-size: 0.8rem;
+      text-decoration: none;
+      align-self: center;
+      margin-left: 0.5rem;
+    }
+    .filters a.reset:hover { color: #94a3b8; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+    thead th {
+      background: #1a1d27;
+      color: #64748b;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+      padding: 0.75rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid #2d3148;
+    }
+    tbody tr {
+      border-bottom: 1px solid #1e2235;
+      transition: background 0.15s;
+    }
+    tbody tr:hover { background: #161926; }
+    td { padding: 0.75rem 1rem; vertical-align: middle; }
+
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .badge-pending      { background: #374151; color: #9ca3af; }
+    .badge-uploading    { background: #1e3a5f; color: #60a5fa; }
+    .badge-completed    { background: #14532d; color: #4ade80; }
+    .badge-failed       { background: #450a0a; color: #f87171; }
+    .badge-interrupted  { background: #431407; color: #fb923c; }
+
+    progress {
+      width: 100px;
+      height: 8px;
+      border-radius: 4px;
+      overflow: hidden;
+      appearance: none;
+      -webkit-appearance: none;
+      background: #2d3148;
+      vertical-align: middle;
+    }
+    progress::-webkit-progress-bar   { background: #2d3148; border-radius: 4px; }
+    progress::-webkit-progress-value { background: #7c85ff; border-radius: 4px; }
+    progress::-moz-progress-bar      { background: #7c85ff; border-radius: 4px; }
+    .progress-label { margin-left: 0.5rem; color: #94a3b8; font-size: 0.8rem; }
+
+    .name-cell { font-family: monospace; font-size: 0.82rem; color: #c4c9e8; }
+    .robot-cell { color: #94a3b8; }
+    .mono { font-family: monospace; }
+    .dim { color: #4b5563; }
+
+    .empty-state {
+      text-align: center;
+      padding: 4rem;
+      color: #4b5563;
+    }
+    .empty-state p { font-size: 1rem; }
+
+    .stats-bar {
+      display: flex;
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .stat {
+      background: #1a1d27;
+      border: 1px solid #2d3148;
+      border-radius: 8px;
+      padding: 0.75rem 1.25rem;
+      min-width: 120px;
+    }
+    .stat .label { font-size: 0.72rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat .value { font-size: 1.4rem; font-weight: 700; margin-top: 0.2rem; }
+    .stat .value.blue    { color: #60a5fa; }
+    .stat .value.green   { color: #4ade80; }
+    .stat .value.red     { color: #f87171; }
+    .stat .value.orange  { color: #fb923c; }
+    .stat .value.default { color: #e2e8f0; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🚀 Liftboy</h1>
+    <span class="subtitle">Recording upload manager</span>
+  </header>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Liftboy — Dashboard{% endblock %}
+
+{% block content %}
+
+{# ── Stats bar ─────────────────────────────────────────────────────────────── #}
+{% set cnt_uploading   = recordings | selectattr("status", "equalto", "uploading")   | list | length %}
+{% set cnt_pending     = recordings | selectattr("status", "equalto", "pending")     | list | length %}
+{% set cnt_completed   = recordings | selectattr("status", "equalto", "completed")   | list | length %}
+{% set cnt_failed      = recordings | selectattr("status", "equalto", "failed")      | list | length %}
+{% set cnt_interrupted = recordings | selectattr("status", "equalto", "interrupted") | list | length %}
+
+<div class="stats-bar">
+  <div class="stat"><div class="label">Total</div><div class="value default">{{ recordings | length }}</div></div>
+  <div class="stat"><div class="label">Uploading</div><div class="value blue">{{ cnt_uploading }}</div></div>
+  <div class="stat"><div class="label">Completed</div><div class="value green">{{ cnt_completed }}</div></div>
+  <div class="stat"><div class="label">Pending</div><div class="value default">{{ cnt_pending }}</div></div>
+  <div class="stat"><div class="label">Failed</div><div class="value red">{{ cnt_failed }}</div></div>
+  <div class="stat"><div class="label">Interrupted</div><div class="value orange">{{ cnt_interrupted }}</div></div>
+</div>
+
+{# ── Filters ───────────────────────────────────────────────────────────────── #}
+<form class="filters" method="get" action="/">
+  <div>
+    <label for="robot-filter">Robot</label>
+    <select name="robot" id="robot-filter">
+      <option value="">All robots</option>
+      {% for r in robots %}
+        <option value="{{ r }}" {% if filter_robot == r %}selected{% endif %}>{{ r }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label for="status-filter">Status</label>
+    <select name="status" id="status-filter">
+      <option value="">All statuses</option>
+      {% for s in statuses %}
+        <option value="{{ s }}" {% if filter_status == s %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="submit">Filter</button>
+  {% if filter_robot or filter_status %}
+    <a class="reset" href="/">Clear</a>
+  {% endif %}
+</form>
+
+{# ── Table ─────────────────────────────────────────────────────────────────── #}
+{% if recordings %}
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Robot</th>
+      <th>Size</th>
+      <th>Duration</th>
+      <th>Status</th>
+      <th>Progress</th>
+      <th>ETA</th>
+      <th>Registered</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for rec in recordings %}
+    <tr>
+      <td class="name-cell">{{ rec.name }}</td>
+      <td class="robot-cell">{{ rec.robot_name }}</td>
+      <td class="mono">{{ (rec.size_bytes / 1073741824) | round(2) }} GB</td>
+      <td class="mono">
+        {% if rec.duration_seconds %}
+          {% set h = (rec.duration_seconds // 3600) | int %}
+          {% set m = ((rec.duration_seconds % 3600) // 60) | int %}
+          {% set s = (rec.duration_seconds % 60) | int %}
+          {{ "%02d:%02d:%02d" | format(h, m, s) }}
+        {% else %}
+          <span class="dim">—</span>
+        {% endif %}
+      </td>
+      <td>
+        <span class="badge badge-{{ rec.status }}">{{ rec.status }}</span>
+      </td>
+      <td>
+        {% if rec.status == "uploading" and rec.progress_pct is not none %}
+          <progress max="100" value="{{ rec.progress_pct | round(1) }}"></progress>
+          <span class="progress-label">{{ rec.progress_pct | round(1) }}%</span>
+        {% elif rec.status == "completed" %}
+          <progress max="100" value="100"></progress>
+          <span class="progress-label">100%</span>
+        {% else %}
+          <span class="dim">—</span>
+        {% endif %}
+      </td>
+      <td class="mono">
+        {% if rec.eta_seconds is not none and rec.status == "uploading" %}
+          {% set h = (rec.eta_seconds // 3600) | int %}
+          {% set m = ((rec.eta_seconds % 3600) // 60) | int %}
+          {% set s = (rec.eta_seconds % 60) | int %}
+          {{ "%02d:%02d:%02d" | format(h, m, s) }}
+        {% else %}
+          <span class="dim">—</span>
+        {% endif %}
+      </td>
+      <td class="mono" style="font-size:0.78rem; color:#64748b;">
+        {{ rec.registered_at.strftime("%Y-%m-%d %H:%M") if rec.registered_at else "—" }}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty-state">
+  <p>No recordings found{% if filter_robot or filter_status %} matching the current filters{% endif %}.</p>
+</div>
+{% endif %}
+
+{% endblock %}
