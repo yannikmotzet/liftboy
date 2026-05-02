@@ -26,7 +26,7 @@ def list_recordings(
     status: str | None = Query(None),
     db: Session = Depends(get_db),
 ):
-    return crud.list_recordings(db, robot_name=robot, status=status)
+    return crud.list_recordings(db, robot_name=robot, status=status, exclude_completed=(status == "!completed"))
 
 
 @router.get("/{recording_id}", response_model=RecordingResponse)

@@ -77,7 +77,7 @@ def dashboard(
     db_gen = get_db()
     db = next(db_gen)
     try:
-        recordings = crud.list_recordings(db, robot_name=robot, status=status)
+        recordings = crud.list_recordings(db, robot_name=robot, status=status, exclude_completed=(status == "!completed"))
         robots = sorted({r.robot_name for r in crud.list_recordings(db)})
         statuses = ["pending", "uploading", "completed", "failed", "interrupted"]
         client_summaries = crud.get_client_summaries(db)

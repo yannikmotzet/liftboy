@@ -59,11 +59,14 @@ def list_recordings(
     db: Session,
     robot_name: str | None = None,
     status: str | None = None,
+    exclude_completed: bool = False,
 ) -> list[Recording]:
     q = db.query(Recording)
     if robot_name:
         q = q.filter(Recording.robot_name == robot_name)
-    if status:
+    if exclude_completed:
+        q = q.filter(Recording.status != RecordingStatus.completed)
+    elif status:
         q = q.filter(Recording.status == status)
     return q.order_by(Recording.registered_at.desc()).all()
 
@@ -76,6 +79,7 @@ def update_progress(db: Session, recording_id: int, req: UpdateProgressRequest) 
     rec.progress_pct = req.progress_pct
     rec.bytes_transferred = req.bytes_transferred
     rec.eta_seconds = req.eta_seconds
+    rec.transfer_speed_bytes = req.speed_bytes_per_sec
     rec.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(rec)
@@ -198,6 +202,8 @@ def get_client_summaries(db: Session) -> list[dict]:
             "total_eta_seconds": total_eta,
             "overall_pct": overall_pct,
             "elapsed_seconds": elapsed_seconds,
+            "total_bytes": total_bytes,
+            "transferred_bytes": transferred,
         })
 
     return sorted(result, key=lambda x: x["client_id"])

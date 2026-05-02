@@ -32,20 +32,49 @@
         <span style="font-size:0.8rem;color:#94a3b8;">{{ "%.1f"|format(s.overall_pct) }}%</span>
       </div>
       <div style="font-size:0.78rem;color:#64748b;display:flex;flex-direction:column;gap:0.2rem;">
-        {% if s.total_eta_seconds is not none %}
-          {% set h = (s.total_eta_seconds // 3600) | int %}
-          {% set m = ((s.total_eta_seconds % 3600) // 60) | int %}
-          {% set sec = (s.total_eta_seconds % 60) | int %}
-          <span>ETA {{ "%02d:%02d:%02d"|format(h,m,sec) }}</span>
+        {% if s.total_eta_seconds is not none or s.elapsed_seconds is not none %}
+          {% set parts = [] %}
+          {% if s.total_eta_seconds is not none %}
+            {% set h = (s.total_eta_seconds // 3600) | int %}
+            {% set m = ((s.total_eta_seconds % 3600) // 60) | int %}
+            {% set sec = (s.total_eta_seconds % 60) | int %}
+            {% set _ = parts.append("ETA %02d:%02d:%02d"|format(h,m,sec)) %}
+          {% endif %}
+          {% if s.elapsed_seconds is not none %}
+            {% set h = (s.elapsed_seconds // 3600) | int %}
+            {% set m = ((s.elapsed_seconds % 3600) // 60) | int %}
+            {% set sec = (s.elapsed_seconds % 60) | int %}
+            {% set _ = parts.append("Running %02d:%02d:%02d"|format(h,m,sec)) %}
+          {% endif %}
+          <span>{{ parts | join(" · ") }}</span>
         {% endif %}
-        {% if s.elapsed_seconds is not none %}
-          {% set h = (s.elapsed_seconds // 3600) | int %}
-          {% set m = ((s.elapsed_seconds % 3600) // 60) | int %}
-          {% set sec = (s.elapsed_seconds % 60) | int %}
-          <span>Running {{ "%02d:%02d:%02d"|format(h,m,sec) }}</span>
+        {% set tb = s.total_bytes %}
+        {% set xfr = s.transferred_bytes %}
+        {% set rem = tb - xfr %}
+        {% if tb >= 1073741824 %}
+          {% set div = 1073741824 %}{% set unit = "GB" %}
+        {% elif tb >= 1048576 %}
+          {% set div = 1048576 %}{% set unit = "MB" %}
+        {% else %}
+          {% set div = 1024 %}{% set unit = "KB" %}
+        {% endif %}
+        <span>{{ "%.1f"|format(xfr / div) }} / {{ "%.1f"|format(rem / div) }} {{ unit }} ({{ "%.1f"|format(tb / div) }} {{ unit }} total)</span>
+        {% set sp_parts = [] %}
+        {% if s.uploading and s.uploading.transfer_speed_bytes is not none %}
+          {% set spd = s.uploading.transfer_speed_bytes %}
+          {% if spd >= 1073741824 %}
+            {% set _ = sp_parts.append("Speed %.1f GB/s"|format(spd / 1073741824)) %}
+          {% elif spd >= 1048576 %}
+            {% set _ = sp_parts.append("Speed %.1f MB/s"|format(spd / 1048576)) %}
+          {% else %}
+            {% set _ = sp_parts.append("Speed %.0f KB/s"|format(spd / 1024)) %}
+          {% endif %}
         {% endif %}
         {% if s.pending_count > 0 %}
-          <span>{{ s.pending_count }} pending · {{ "%.1f"|format(s.pending_bytes / 1073741824) }} GB</span>
+          {% set _ = sp_parts.append(s.pending_count ~ " pending") %}
+        {% endif %}
+        {% if sp_parts %}
+          <span>{{ sp_parts | join(" · ") }}</span>
         {% endif %}
         {% if s.interrupted_count > 0 %}
           <span style="color:#fb923c;">{{ s.interrupted_count }} interrupted</span>
@@ -75,6 +104,7 @@
     <label for="status-filter">Status</label>
     <select name="status" id="status-filter">
       <option value="">All statuses</option>
+      <option value="!completed" {% if filter_status == "!completed" %}selected{% endif %}>All except completed</option>
       {% for s in statuses %}
         <option value="{{ s }}" {% if filter_status == s %}selected{% endif %}>{{ s }}</option>
       {% endfor %}
@@ -99,6 +129,7 @@
       <th>Duration</th>
       <th>Status</th>
       <th>Progress</th>
+      <th>Transfer</th>
       <th>ETA</th>
       <th>Registered</th>
     </tr>
@@ -130,6 +161,31 @@
         {% elif rec.status == "completed" %}
           <progress max="100" value="100"></progress>
           <span class="progress-label">100%</span>
+        {% else %}
+          <span class="dim">—</span>
+        {% endif %}
+      </td>
+      <td class="mono">
+        {% if rec.status == "uploading" and rec.bytes_transferred is not none %}
+          {%- set tot = rec.size_bytes -%}
+          {%- set xfr = rec.bytes_transferred -%}
+          {%- set rem = tot - xfr -%}
+          {%- if tot >= 1073741824 -%}
+            {{ "%.1f"|format(xfr / 1073741824) }} / {{ "%.1f"|format(rem / 1073741824) }} GB
+          {%- elif tot >= 1048576 -%}
+            {{ "%.1f"|format(xfr / 1048576) }} / {{ "%.1f"|format(rem / 1048576) }} MB
+          {%- else -%}
+            {{ "%.1f"|format(xfr / 1024) }} / {{ "%.1f"|format(rem / 1024) }} KB
+          {%- endif %}
+        {% elif rec.status == "completed" %}
+          {%- set tot = rec.size_bytes -%}
+          {%- if tot >= 1073741824 -%}
+            {{ "%.1f"|format(tot / 1073741824) }} GB
+          {%- elif tot >= 1048576 -%}
+            {{ "%.1f"|format(tot / 1048576) }} MB
+          {%- else -%}
+            {{ "%.1f"|format(tot / 1024) }} KB
+          {%- endif %}
         {% else %}
           <span class="dim">—</span>
         {% endif %}
@@ -167,9 +223,32 @@
   const filterStatus = {{ filter_status | tojson }};
 
   function fmtSize(bytes) {
-    if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(2) + ' GB';
+    if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(1) + ' GB';
     if (bytes >= 1048576)    return (bytes / 1048576).toFixed(1)    + ' MB';
     return                          (bytes / 1024).toFixed(1)        + ' KB';
+  }
+
+  function fmtSpeed(bps) {
+    if (bps == null) return '<span class="dim">—</span>';
+    if (bps >= 1073741824) return (bps / 1073741824).toFixed(1) + ' GB/s';
+    if (bps >= 1048576)    return (bps / 1048576).toFixed(1)    + ' MB/s';
+    return                        (bps / 1024).toFixed(0)        + ' KB/s';
+  }
+
+  function fmtSizeUnit(bytes, divisor, unit) {
+    return (bytes / divisor).toFixed(1) + ' ' + unit;
+  }
+
+  function fmtTransferCell(rec) {
+    const tot = rec.size_bytes;
+    const div = tot >= 1073741824 ? 1073741824 : tot >= 1048576 ? 1048576 : 1024;
+    const unit = tot >= 1073741824 ? 'GB' : tot >= 1048576 ? 'MB' : 'KB';
+    if (rec.status === 'uploading' && rec.bytes_transferred != null) {
+      const remaining = Math.max(0, tot - rec.bytes_transferred);
+      return `${(rec.bytes_transferred / div).toFixed(1)} / ${(remaining / div).toFixed(1)} ${unit}`;
+    }
+    if (rec.status === 'completed') return fmtSizeUnit(tot, div, unit);
+    return '<span class="dim">—</span>';
   }
 
   function fmtHMS(totalSeconds) {
@@ -211,6 +290,7 @@
       <td class="mono">${fmtHMS(rec.duration_seconds)}</td>
       <td><span class="badge badge-${rec.status}">${rec.status}</span></td>
       <td>${progressCell(rec)}</td>
+      <td class="mono">${fmtTransferCell(rec)}</td>
       <td class="mono">${rec.status === 'uploading' ? fmtHMS(rec.eta_seconds) : '<span class="dim">—</span>'}</td>
       <td class="mono" style="font-size:0.78rem;color:#64748b;">${fmtDate(rec.registered_at)}</td>
     </tr>`;
@@ -219,10 +299,24 @@
   function buildFleetCard(s) {
     const pct = s.overall_pct != null ? s.overall_pct.toFixed(1) : '0.0';
     const lines = [];
-    if (s.total_eta_seconds != null) lines.push(`ETA ${fmtHMS(s.total_eta_seconds)}`);
-    if (s.elapsed_seconds   != null) lines.push(`Running ${fmtHMS(s.elapsed_seconds)}`);
+    if (s.total_eta_seconds != null || s.elapsed_seconds != null) {
+      const parts = [];
+      if (s.total_eta_seconds != null) parts.push(`ETA ${fmtHMS(s.total_eta_seconds)}`);
+      if (s.elapsed_seconds   != null) parts.push(`Running ${fmtHMS(s.elapsed_seconds)}`);
+      lines.push(parts.join(' · '));
+    }
+    if (s.total_bytes > 0) {
+      const tot = s.total_bytes, xfr = s.transferred_bytes, rem = tot - xfr;
+      const div = tot >= 1073741824 ? 1073741824 : tot >= 1048576 ? 1048576 : 1024;
+      const unit = tot >= 1073741824 ? 'GB' : tot >= 1048576 ? 'MB' : 'KB';
+      lines.push(`${(xfr/div).toFixed(1)} / ${(rem/div).toFixed(1)} ${unit} (${(tot/div).toFixed(1)} ${unit} total)`);
+    }
+    const spParts = [];
+    if (s.uploading && s.uploading.transfer_speed_bytes != null)
+      spParts.push(`Speed ${fmtSpeed(s.uploading.transfer_speed_bytes)}`);
     if (s.pending_count > 0)
-      lines.push(`${s.pending_count} pending · ${(s.pending_bytes / 1073741824).toFixed(1)} GB`);
+      spParts.push(`${s.pending_count} pending`);
+    if (spParts.length) lines.push(spParts.join(' · '));
     if (s.interrupted_count > 0)
       lines.push(`<span style="color:#fb923c;">${s.interrupted_count} interrupted</span>`);
     if (!s.uploading)
