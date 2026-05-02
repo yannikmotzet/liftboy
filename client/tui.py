@@ -6,7 +6,7 @@ from types import TracebackType
 from rich.console import Console, Group
 from rich.live import Live
 from rich.panel import Panel
-from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
+from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeRemainingColumn
 from rich.table import Table
 from rich.text import Text
 
@@ -48,15 +48,17 @@ class TuiManager:
         self._state: dict[str, tuple[str, float, float | None]] = {
             r.name: ("pending", 0.0, None) for r in recordings
         }
+        self._size_bytes = {r.name: r.size_bytes for r in recordings}
+        total_bytes = sum(r.size_bytes for r in recordings)
         self._overall_progress = Progress(
             SpinnerColumn(),
             TextColumn("[bold]Overall"),
             BarColumn(bar_width=40),
             TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-            TimeElapsedColumn(),
+            TimeRemainingColumn(),
         )
         self._overall_task = self._overall_progress.add_task(
-            "overall", total=len(recordings)
+            "overall", total=total_bytes
         )
         self._console = console or Console()
         self._live = Live(
@@ -110,11 +112,13 @@ class TuiManager:
         eta_secs: float | None = None,
     ) -> None:
         self._state[name] = (status, progress_pct, eta_secs)
-        if status == "completed":
-            completed_count = sum(
-                1 for s, _, _ in self._state.values() if s == "completed"
-            )
-            self._overall_progress.update(self._overall_task, completed=completed_count)
+        transferred = sum(
+            self._size_bytes[n] if s == "completed"
+            else int(self._size_bytes[n] * pct / 100)
+            for n, (s, pct, _) in self._state.items()
+            if s in ("completed", "uploading")
+        )
+        self._overall_progress.update(self._overall_task, completed=transferred)
         self._live.update(self._render())
 
     def __enter__(self) -> "TuiManager":
