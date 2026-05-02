@@ -35,37 +35,34 @@
 
     .filters {
       display: flex;
-      gap: 1rem;
-      margin-bottom: 1.5rem;
+      gap: 0.5rem;
+      margin-bottom: 1.25rem;
       flex-wrap: wrap;
-      align-items: flex-end;
+      align-items: center;
     }
-    .filters label { font-size: 0.8rem; color: #94a3b8; display: block; margin-bottom: 0.3rem; }
     .filters select, .filters input {
       background: #1a1d27;
       border: 1px solid #2d3148;
       color: #e2e8f0;
-      padding: 0.45rem 0.75rem;
-      border-radius: 6px;
-      font-size: 0.875rem;
-      min-width: 150px;
+      padding: 0.3rem 0.5rem;
+      border-radius: 5px;
+      font-size: 0.8rem;
+      min-width: 130px;
     }
     .filters button {
       background: #7c85ff;
       color: #fff;
       border: none;
-      padding: 0.45rem 1.2rem;
-      border-radius: 6px;
-      font-size: 0.875rem;
+      padding: 0.3rem 0.9rem;
+      border-radius: 5px;
+      font-size: 0.8rem;
       cursor: pointer;
     }
     .filters button:hover { background: #6366f1; }
     .filters a.reset {
       color: #64748b;
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       text-decoration: none;
-      align-self: center;
-      margin-left: 0.5rem;
     }
     .filters a.reset:hover { color: #94a3b8; }
 
@@ -162,6 +159,10 @@
     <div>
       <h1>Liftboy</h1>
       <span class="subtitle">Recording upload manager</span>
+    </div>
+    <div id="conn-status" style="margin-left:auto;display:flex;align-items:center;gap:0.4rem;font-size:0.8rem;color:#4ade80;">
+      <span id="conn-dot" style="font-size:0.6rem;">●</span>
+      <span id="conn-label">connected</span>
     </div>
   </header>
   <main>

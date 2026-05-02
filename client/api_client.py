@@ -23,6 +23,7 @@ class LiftboyApiClient:
     def __init__(self, server_url: str) -> None:
         self._base = server_url.rstrip("/")
         self._client = httpx.Client(timeout=10.0)
+        self.connected: bool = True
 
     def _post(self, path: str, data: dict) -> httpx.Response | None:
         url = f"{self._base}{path}"
@@ -30,14 +31,17 @@ class LiftboyApiClient:
             try:
                 resp = self._client.post(url, json=data)
                 resp.raise_for_status()
+                self.connected = True
                 return resp
             except httpx.HTTPStatusError as e:
                 logger.error("HTTP error %s: %s", e.response.status_code, e.response.text)
+                self.connected = True  # server responded, just an error
                 return None
             except httpx.RequestError as e:
                 if attempt < _MAX_RETRIES - 1:
                     time.sleep(_RETRY_BACKOFF * (2**attempt))
                 else:
+                    self.connected = False
                     logger.warning("Server unreachable after %d retries: %s", _MAX_RETRIES, e)
         return None
 
@@ -47,14 +51,17 @@ class LiftboyApiClient:
             try:
                 resp = self._client.patch(url, json=data)
                 resp.raise_for_status()
+                self.connected = True
                 return
             except httpx.HTTPStatusError as e:
                 logger.error("HTTP error %s: %s", e.response.status_code, e.response.text)
+                self.connected = True  # server responded, just an error
                 return
             except httpx.RequestError as e:
                 if attempt < _MAX_RETRIES - 1:
                     time.sleep(_RETRY_BACKOFF * (2**attempt))
                 else:
+                    self.connected = False
                     logger.warning("Server unreachable after %d retries: %s", _MAX_RETRIES, e)
 
     def register_recording(self, meta: RecordingMetadata) -> RecordingResponse | None:

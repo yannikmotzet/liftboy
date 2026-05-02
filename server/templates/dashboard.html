@@ -91,25 +91,19 @@
 
 {# ── Filters ───────────────────────────────────────────────────────────────── #}
 <form class="filters" method="get" action="/">
-  <div>
-    <label for="robot-filter">Robot</label>
-    <select name="robot" id="robot-filter">
-      <option value="">All robots</option>
-      {% for r in robots %}
-        <option value="{{ r }}" {% if filter_robot == r %}selected{% endif %}>{{ r }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div>
-    <label for="status-filter">Status</label>
-    <select name="status" id="status-filter">
-      <option value="">All statuses</option>
-      <option value="!completed" {% if filter_status == "!completed" %}selected{% endif %}>All except completed</option>
-      {% for s in statuses %}
-        <option value="{{ s }}" {% if filter_status == s %}selected{% endif %}>{{ s }}</option>
-      {% endfor %}
-    </select>
-  </div>
+  <select name="robot" id="robot-filter">
+    <option value="">All robots</option>
+    {% for r in robots %}
+      <option value="{{ r }}" {% if filter_robot == r %}selected{% endif %}>{{ r }}</option>
+    {% endfor %}
+  </select>
+  <select name="status" id="status-filter">
+    <option value="">All statuses</option>
+    <option value="!completed" {% if filter_status == "!completed" %}selected{% endif %}>All except completed</option>
+    {% for s in statuses %}
+      <option value="{{ s }}" {% if filter_status == s %}selected{% endif %}>{{ s }}</option>
+    {% endfor %}
+  </select>
   <button type="submit">Filter</button>
   {% if filter_robot or filter_status %}
     <a class="reset" href="/">Clear</a>
@@ -376,6 +370,22 @@
           const inner = container.querySelector('div[style*="display:flex"]');
           if (inner) inner.innerHTML = fleet.map(buildFleetCard).join('');
         }
+      }
+    }
+
+    // Connection indicator: ok if either fetch succeeded
+    const ok = (recsResp.status === 'fulfilled' && recsResp.value.ok)
+             || (fleetResp.status === 'fulfilled' && fleetResp.value.ok);
+    const dot   = document.getElementById('conn-dot');
+    const label = document.getElementById('conn-label');
+    const status = document.getElementById('conn-status');
+    if (dot && label && status) {
+      if (ok) {
+        status.style.color = '#4ade80';
+        label.textContent = 'connected';
+      } else {
+        status.style.color = '#f87171';
+        label.textContent = 'connection lost';
       }
     }
   }

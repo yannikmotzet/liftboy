@@ -114,6 +114,7 @@ def main() -> None:
                         speed_bytes_per_sec=speed_bps,
                     ),
                 )
+                tui.set_connection_status(api.connected)
                 tui.update_row(_name, "uploading", pct, eta_secs, bytes_xfrd, _size, speed_bps)
 
             src = cfg.storage_path / rec.name

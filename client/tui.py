@@ -60,6 +60,7 @@ class TuiManager:
         self._state: dict[str, tuple[str, float, float | None, int, int, float | None]] = {
             r.name: ("pending", 0.0, None, 0, r.size_bytes, None) for r in recordings
         }
+        self._connected: bool = True
         total_bytes = sum(r.size_bytes for r in recordings)
         self._overall_progress = Progress(
             SpinnerColumn(),
@@ -130,8 +131,21 @@ class TuiManager:
                 eta_str,
             )
 
-        panel = Panel(table, title="[bold]Liftboy — Recording Upload", border_style="dim blue")
+        if self._connected:
+            conn_indicator = "[bold green]● connected[/]"
+        else:
+            conn_indicator = "[bold red]● server unreachable[/]"
+        panel = Panel(
+            table,
+            title=f"[bold]Liftboy — Recording Upload[/]  {conn_indicator}",
+            border_style="dim blue" if self._connected else "red",
+        )
         return Group(panel, self._overall_progress)
+
+    def set_connection_status(self, connected: bool) -> None:
+        if self._connected != connected:
+            self._connected = connected
+            self._live.update(self._render())
 
     def update_row(
         self,
