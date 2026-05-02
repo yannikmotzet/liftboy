@@ -80,6 +80,7 @@ def dashboard(
         recordings = crud.list_recordings(db, robot_name=robot, status=status)
         robots = sorted({r.robot_name for r in crud.list_recordings(db)})
         statuses = ["pending", "uploading", "completed", "failed", "interrupted"]
+        client_summaries = crud.get_client_summaries(db)
         return templates.TemplateResponse(
             "dashboard.html",
             {
@@ -89,6 +90,7 @@ def dashboard(
                 "statuses": statuses,
                 "filter_robot": robot or "",
                 "filter_status": status or "",
+                "client_summaries": client_summaries,
             },
         )
     finally:

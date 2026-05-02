@@ -12,3 +12,8 @@ router = APIRouter()
 @router.get("/health")
 def health(db: Session = Depends(get_db)):
     return {"status": "ok", "recording_count": crud.count_recordings(db)}
+
+
+@router.get("/fleet")
+def fleet(db: Session = Depends(get_db)):
+    return crud.get_client_summaries(db)

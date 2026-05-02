@@ -123,5 +123,60 @@ def mark_stale_uploads_interrupted(db: Session, timeout_seconds: int) -> int:
     return len(stale)
 
 
+def get_client_summaries(db: Session) -> list[dict]:
+    from collections import defaultdict
+
+    recs = (
+        db.query(Recording)
+        .filter(
+            Recording.client_host.isnot(None),
+            Recording.status.in_(["pending", "uploading", "interrupted"]),
+        )
+        .all()
+    )
+
+    clients: dict[str, dict] = defaultdict(
+        lambda: {"uploading": None, "pending": [], "interrupted": []}
+    )
+    for rec in recs:
+        if rec.status == "uploading":
+            clients[rec.client_host]["uploading"] = rec
+        elif rec.status == "pending":
+            clients[rec.client_host]["pending"].append(rec)
+        else:
+            clients[rec.client_host]["interrupted"].append(rec)
+
+    result = []
+    for client_id, data in clients.items():
+        uploading = data["uploading"]
+        pending_bytes = sum(r.size_bytes for r in data["pending"])
+
+        # Estimate total remaining time using current rsync transfer speed:
+        # speed = remaining_active_bytes / active_eta_seconds
+        # total_eta = active_eta + pending_bytes / speed
+        total_eta = None
+        if (
+            uploading
+            and uploading.eta_seconds is not None
+            and uploading.progress_pct is not None
+            and uploading.eta_seconds > 0
+        ):
+            remaining_active = uploading.size_bytes * (1 - uploading.progress_pct / 100)
+            if remaining_active > 0:
+                speed = remaining_active / uploading.eta_seconds
+                total_eta = uploading.eta_seconds + pending_bytes / speed
+
+        result.append({
+            "client_id": client_id,
+            "uploading": uploading,
+            "pending_count": len(data["pending"]),
+            "pending_bytes": pending_bytes,
+            "interrupted_count": len(data["interrupted"]),
+            "total_eta_seconds": total_eta,
+        })
+
+    return sorted(result, key=lambda x: x["client_id"])
+
+
 def count_recordings(db: Session) -> int:
     return db.query(Recording).count()
