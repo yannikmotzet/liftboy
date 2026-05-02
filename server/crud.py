@@ -171,6 +171,24 @@ def get_client_summaries(db: Session) -> list[dict]:
                 speed = remaining_active / uploading.eta_seconds
                 total_eta = uploading.eta_seconds + pending_bytes / speed
 
+        # Overall percentage across all bytes this client still needs to transfer
+        total_bytes = (uploading.size_bytes if uploading else 0) + pending_bytes
+        transferred = (uploading.bytes_transferred or 0) if uploading else 0
+        overall_pct = transferred / total_bytes * 100 if total_bytes > 0 else 0.0
+
+        # Elapsed time estimate: transferred / speed = transferred * eta / remaining
+        elapsed_seconds = None
+        if (
+            uploading
+            and uploading.eta_seconds is not None
+            and uploading.progress_pct is not None
+            and uploading.eta_seconds > 0
+            and transferred > 0
+        ):
+            remaining_active = uploading.size_bytes * (1 - uploading.progress_pct / 100)
+            if remaining_active > 0:
+                elapsed_seconds = transferred * uploading.eta_seconds / remaining_active
+
         result.append({
             "client_id": client_id,
             "uploading": uploading,
@@ -178,6 +196,8 @@ def get_client_summaries(db: Session) -> list[dict]:
             "pending_bytes": pending_bytes,
             "interrupted_count": len(data["interrupted"]),
             "total_eta_seconds": total_eta,
+            "overall_pct": overall_pct,
+            "elapsed_seconds": elapsed_seconds,
         })
 
     return sorted(result, key=lambda x: x["client_id"])
