@@ -8,6 +8,7 @@ from pathlib import Path
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from server.api.health import router as health_router
@@ -17,6 +18,7 @@ from server.database import get_db, init_db
 from server import crud
 
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
+_ASSETS_DIR = Path(__file__).parent.parent / "assets"
 logger = logging.getLogger(__name__)
 
 async def _stale_upload_watcher(timeout_seconds: int) -> None:
@@ -64,6 +66,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Liftboy Server", version="0.1.0", lifespan=lifespan)
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
+app.mount("/static", StaticFiles(directory=str(_ASSETS_DIR)), name="static")
 app.include_router(recordings_router, prefix="/recordings", tags=["recordings"])
 app.include_router(health_router, tags=["health"])
 

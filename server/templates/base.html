@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Liftboy{% endblock %}</title>
+  <link rel="icon" type="image/png" href="/static/liftboy_logo.png">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -157,8 +158,11 @@
 </head>
 <body>
   <header>
-    <h1>🚀 Liftboy</h1>
-    <span class="subtitle">Recording upload manager</span>
+    <img src="/static/liftboy_logo.png" alt="Liftboy" style="height:2.5rem;width:auto;">
+    <div>
+      <h1>Liftboy</h1>
+      <span class="subtitle">Recording upload manager</span>
+    </div>
   </header>
   <main>
     {% block content %}{% endblock %}
