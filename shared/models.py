@@ -35,6 +35,7 @@ class UpdateProgressRequest(BaseModel):
     progress_pct: float
     bytes_transferred: int
     eta_seconds: float | None = None
+    speed_bytes_per_sec: float | None = None
 
 
 class UpdateStatusRequest(BaseModel):
@@ -60,3 +61,4 @@ class RecordingResponse(BaseModel):
     completed_at: datetime | None
     client_host: str | None
     error_message: str | None
+    transfer_speed_bytes: float | None

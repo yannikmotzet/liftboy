@@ -100,8 +100,10 @@ def main() -> None:
                 pct: float,
                 bytes_xfrd: int,
                 eta_secs: float | None,
+                speed_bps: float | None = None,
                 _id: int = server_rec.id,
                 _name: str = rec.name,
+                _size: int = rec.size_bytes,
             ) -> None:
                 api.update_progress(
                     _id,
@@ -109,9 +111,10 @@ def main() -> None:
                         progress_pct=pct,
                         bytes_transferred=bytes_xfrd,
                         eta_seconds=eta_secs,
+                        speed_bytes_per_sec=speed_bps,
                     ),
                 )
-                tui.update_row(_name, "uploading", pct, eta_secs)
+                tui.update_row(_name, "uploading", pct, eta_secs, bytes_xfrd, _size, speed_bps)
 
             src = cfg.storage_path / rec.name
             dest = cfg.network_path / rec.name

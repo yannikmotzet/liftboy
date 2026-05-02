@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Generator
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 
@@ -22,6 +22,14 @@ def init_db(db_path: str = "./liftboy.db") -> None:
     )
     _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
     Base.metadata.create_all(bind=_engine)
+    # migrate: add columns introduced after initial schema
+    with _engine.connect() as conn:
+        for col in ("transfer_speed_bytes REAL",):
+            try:
+                conn.execute(text(f"ALTER TABLE recordings ADD COLUMN {col}"))
+                conn.commit()
+            except Exception:
+                pass  # column already exists
 
 
 def get_db() -> Generator[Session, None, None]:

@@ -34,3 +34,4 @@ class Recording(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     client_host: Mapped[str | None] = mapped_column(String, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    transfer_speed_bytes: Mapped[float | None] = mapped_column(Float, nullable=True)

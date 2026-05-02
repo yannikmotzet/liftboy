@@ -8,8 +8,10 @@ from pathlib import Path
 # Matches rsync progress lines:
 #     1,234,567  42%   10.50MB/s    0:01:23
 _PROGRESS_RE = re.compile(
-    r"(?P<bytes>[\d,]+)\s+(?P<pct>\d+)%\s+[\d.]+\w+/s\s+(?P<eta>\d+:\d+:\d+)"
+    r"(?P<bytes>[\d,]+)\s+(?P<pct>\d+)%\s+(?P<speed>[\d.]+)(?P<unit>[kMGT]?)B/s\s+(?P<eta>\d+:\d+:\d+)"
 )
+
+_UNIT_MULTIPLIERS = {"": 1, "k": 1_000, "M": 1_000_000, "G": 1_000_000_000, "T": 1_000_000_000_000}
 
 
 def _parse_eta(eta_str: str) -> float:
@@ -18,7 +20,11 @@ def _parse_eta(eta_str: str) -> float:
     return h * 3600 + m * 60 + s
 
 
-ProgressCallback = Callable[[float, int, float | None], None]
+def _parse_speed(speed_str: str, unit: str) -> float:
+    return float(speed_str) * _UNIT_MULTIPLIERS.get(unit, 1)
+
+
+ProgressCallback = Callable[[float, int, float | None, float | None], None]
 
 
 class RsyncUploader:
@@ -55,7 +61,8 @@ class RsyncUploader:
                         pct = float(m.group("pct"))
                         bytes_xfrd = int(m.group("bytes").replace(",", ""))
                         eta = _parse_eta(m.group("eta"))
-                        progress_callback(pct, bytes_xfrd, eta)
+                        speed = _parse_speed(m.group("speed"), m.group("unit"))
+                        progress_callback(pct, bytes_xfrd, eta, speed)
 
             proc.wait()
             return proc.returncode == 0
