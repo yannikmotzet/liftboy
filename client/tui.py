@@ -6,7 +6,7 @@ from types import TracebackType
 from rich.console import Console, Group
 from rich.live import Live
 from rich.panel import Panel
-from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeRemainingColumn
+from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from rich.table import Table
 from rich.text import Text
 
@@ -55,6 +55,8 @@ class TuiManager:
             TextColumn("[bold]Overall"),
             BarColumn(bar_width=40),
             TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            TimeElapsedColumn(),
+            TextColumn("[dim]eta"),
             TimeRemainingColumn(),
         )
         self._overall_task = self._overall_progress.add_task(
