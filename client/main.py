@@ -5,6 +5,9 @@ import shutil
 import signal
 import sys
 
+from rich.console import Console
+from rich.logging import RichHandler
+
 from client.api_client import LiftboyApiClient
 from client.config import load_client_config
 from client.scanner import build_default_registry, scan_recordings
@@ -12,7 +15,15 @@ from client.tui import TuiManager
 from client.uploader import RsyncUploader
 from shared.models import RecordingResponse, RecordingStatus, UpdateProgressRequest, UpdateStatusRequest
 
-logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
+# Single console shared with the TUI so log messages are buffered above the
+# live display instead of being overwritten by the next redraw.
+_console = Console()
+logging.basicConfig(
+    level=logging.WARNING,
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler(console=_console, show_path=False)],
+)
 
 
 def _fmt_size(b: int) -> str:
@@ -72,7 +83,7 @@ def main() -> None:
     signal.signal(signal.SIGINT, _handle_interrupt)
     signal.signal(signal.SIGTERM, _handle_interrupt)
 
-    with TuiManager(recordings) as tui:
+    with TuiManager(recordings, console=_console) as tui:
         for rec, server_rec in zip(recordings, server_recs):
             if server_rec is None:
                 tui.update_row(rec.name, "failed", 0.0)

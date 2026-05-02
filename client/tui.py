@@ -42,7 +42,7 @@ def _fmt_eta(secs: float | None) -> str:
 
 
 class TuiManager:
-    def __init__(self, recordings: list[RecordingMetadata]) -> None:
+    def __init__(self, recordings: list[RecordingMetadata], console: Console | None = None) -> None:
         self._recordings = recordings
         # row state: name → (status, progress_pct, eta_secs)
         self._state: dict[str, tuple[str, float, float | None]] = {
@@ -58,13 +58,17 @@ class TuiManager:
         self._overall_task = self._overall_progress.add_task(
             "overall", total=len(recordings)
         )
-        self._console = Console()
+        self._console = console or Console()
         self._live = Live(
             self._render(),
             console=self._console,
             refresh_per_second=4,
             transient=False,
         )
+
+    @property
+    def console(self) -> Console:
+        return self._console
 
     def _render(self) -> Group:
         table = Table(
