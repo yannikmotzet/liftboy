@@ -29,6 +29,11 @@ VALID_TRANSITIONS: dict[str, set[str]] = {
 def create_or_get_recording(db: Session, req: RegisterRecordingRequest) -> Recording:
     existing = db.query(Recording).filter(Recording.name == req.name).first()
     if existing:
+        if req.client_host and existing.client_host != req.client_host:
+            existing.client_host = req.client_host
+            existing.updated_at = datetime.now(timezone.utc)
+            db.commit()
+            db.refresh(existing)
         return existing
 
     rec = Recording(
