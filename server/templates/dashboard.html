@@ -62,12 +62,12 @@
         {% set sp_parts = [] %}
         {% if s.uploading and s.uploading.transfer_speed_bytes is not none %}
           {% set spd = s.uploading.transfer_speed_bytes %}
-          {% if spd >= 1073741824 %}
-            {% set _ = sp_parts.append("Speed %.1f GB/s"|format(spd / 1073741824)) %}
-          {% elif spd >= 1048576 %}
-            {% set _ = sp_parts.append("Speed %.1f MB/s"|format(spd / 1048576)) %}
+          {% if spd >= 1e9 %}
+            {% set _ = sp_parts.append("Speed %.1f GB/s"|format(spd / 1e9)) %}
+          {% elif spd >= 1e6 %}
+            {% set _ = sp_parts.append("Speed %.1f MB/s"|format(spd / 1e6)) %}
           {% else %}
-            {% set _ = sp_parts.append("Speed %.0f KB/s"|format(spd / 1024)) %}
+            {% set _ = sp_parts.append("Speed %.1f KB/s"|format(spd / 1e3)) %}
           {% endif %}
         {% endif %}
         {% if s.pending_count > 0 %}
@@ -224,9 +224,9 @@
 
   function fmtSpeed(bps) {
     if (bps == null) return '<span class="dim">—</span>';
-    if (bps >= 1073741824) return (bps / 1073741824).toFixed(1) + ' GB/s';
-    if (bps >= 1048576)    return (bps / 1048576).toFixed(1)    + ' MB/s';
-    return                        (bps / 1024).toFixed(0)        + ' KB/s';
+    if (bps >= 1e9) return (bps / 1e9).toFixed(1) + ' GB/s';
+    if (bps >= 1e6) return (bps / 1e6).toFixed(1) + ' MB/s';
+    return                 (bps / 1e3).toFixed(1) + ' KB/s';
   }
 
   function fmtSizeUnit(bytes, divisor, unit) {
