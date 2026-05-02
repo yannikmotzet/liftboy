@@ -58,12 +58,19 @@ class LiftboyApiClient:
                     logger.warning("Server unreachable after %d retries: %s", _MAX_RETRIES, e)
 
     def register_recording(self, meta: RecordingMetadata) -> RecordingResponse | None:
+        import os
         import socket
 
         try:
-            host = socket.gethostname()
+            hostname = socket.gethostname()
         except Exception:
-            host = None
+            hostname = "unknown"
+        try:
+            import pwd
+            username = pwd.getpwuid(os.getuid()).pw_name
+        except Exception:
+            username = os.environ.get("USER", os.environ.get("USERNAME", "unknown"))
+        host = f"{username}@{hostname}"
 
         req = RegisterRecordingRequest(
             name=meta.name,
