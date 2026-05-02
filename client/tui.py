@@ -6,11 +6,25 @@ from types import TracebackType
 from rich.console import Console, Group
 from rich.live import Live
 from rich.panel import Panel
-from rich.progress import BarColumn, DownloadColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn, TransferSpeedColumn
+from rich.progress import BarColumn, DownloadColumn, Progress, ProgressColumn, SpinnerColumn, Task, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from rich.table import Table
 from rich.text import Text
 
 from shared.models import RecordingMetadata
+
+class _RsyncSpeedColumn(ProgressColumn):
+    def render(self, task: Task) -> Text:
+        bps = task.fields.get("rsync_speed")
+        if not bps:
+            return Text("", style="progress.data.speed")
+        if bps >= 1e9:
+            s = f"{bps / 1e9:.1f} GB/s"
+        elif bps >= 1e6:
+            s = f"{bps / 1e6:.1f} MB/s"
+        else:
+            s = f"{bps / 1e3:.1f} KB/s"
+        return Text(s, style="progress.data.speed")
+
 
 _STATUS_STYLES: dict[str, str] = {
     "pending": "dim",
@@ -44,13 +58,11 @@ def _fmt_eta(secs: float | None) -> str:
 def _fmt_speed(bps: float | None) -> str:
     if bps is None:
         return "—"
-    if bps >= 1_073_741_824:
-        return f"{bps / 1_073_741_824:.1f} GB/s"
-    if bps >= 1_048_576:
-        return f"{bps / 1_048_576:.1f} MB/s"
-    if bps >= 1024:
-        return f"{bps / 1024:.1f} KB/s"
-    return f"{bps:.0f} B/s"
+    if bps >= 1e9:
+        return f"{bps / 1e9:.1f} GB/s"
+    if bps >= 1e6:
+        return f"{bps / 1e6:.1f} MB/s"
+    return f"{bps / 1e3:.1f} KB/s"
 
 
 class TuiManager:
@@ -68,7 +80,7 @@ class TuiManager:
             DownloadColumn(),
             BarColumn(bar_width=30),
             TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-            TransferSpeedColumn(),
+            _RsyncSpeedColumn(),
             TimeElapsedColumn(),
             TextColumn("[dim]eta"),
             TimeRemainingColumn(),
@@ -175,8 +187,7 @@ class TuiManager:
         self._overall_progress.update(
             self._overall_task,
             completed=transferred,
-            # Rich uses speed for TimeRemainingColumn and TransferSpeedColumn
-            **{"speed": total_speed if total_speed > 0 else None},
+            rsync_speed=total_speed if total_speed > 0 else None,
         )
         self._live.update(self._render())
 
