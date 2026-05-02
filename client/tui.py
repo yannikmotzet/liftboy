@@ -6,7 +6,7 @@ from types import TracebackType
 from rich.console import Console, Group
 from rich.live import Live
 from rich.panel import Panel
-from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
+from rich.progress import BarColumn, DownloadColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn, TransferSpeedColumn
 from rich.table import Table
 from rich.text import Text
 
@@ -41,20 +41,33 @@ def _fmt_eta(secs: float | None) -> str:
     return str(timedelta(seconds=int(secs)))
 
 
+def _fmt_speed(bps: float | None) -> str:
+    if bps is None:
+        return "—"
+    if bps >= 1_073_741_824:
+        return f"{bps / 1_073_741_824:.1f} GB/s"
+    if bps >= 1_048_576:
+        return f"{bps / 1_048_576:.1f} MB/s"
+    if bps >= 1024:
+        return f"{bps / 1024:.1f} KB/s"
+    return f"{bps:.0f} B/s"
+
+
 class TuiManager:
     def __init__(self, recordings: list[RecordingMetadata], console: Console | None = None) -> None:
         self._recordings = recordings
-        # row state: name → (status, progress_pct, eta_secs)
-        self._state: dict[str, tuple[str, float, float | None]] = {
-            r.name: ("pending", 0.0, None) for r in recordings
+        # row state: name → (status, progress_pct, eta_secs, bytes_xfrd, size_bytes, speed_bps)
+        self._state: dict[str, tuple[str, float, float | None, int, int, float | None]] = {
+            r.name: ("pending", 0.0, None, 0, r.size_bytes, None) for r in recordings
         }
-        self._size_bytes = {r.name: r.size_bytes for r in recordings}
         total_bytes = sum(r.size_bytes for r in recordings)
         self._overall_progress = Progress(
             SpinnerColumn(),
             TextColumn("[bold]Overall"),
-            BarColumn(bar_width=40),
+            DownloadColumn(),
+            BarColumn(bar_width=30),
             TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            TransferSpeedColumn(),
             TimeElapsedColumn(),
             TextColumn("[dim]eta"),
             TimeRemainingColumn(),
@@ -87,12 +100,25 @@ class TuiManager:
         table.add_column("Duration", justify="right")
         table.add_column("Status", justify="center")
         table.add_column("Progress", justify="right")
+        table.add_column("Transfer", justify="right")
         table.add_column("ETA", justify="right")
 
         for rec in self._recordings:
-            status, pct, eta = self._state[rec.name]
+            status, pct, eta, bytes_xfrd, size_bytes, speed_bps = self._state[rec.name]
             style = _STATUS_STYLES.get(status, "")
             pct_str = f"{pct:.0f}%" if status in ("uploading", "completed") else "—"
+
+            if status == "uploading":
+                remaining = max(0, size_bytes - bytes_xfrd)
+                transfer_str = f"{_fmt_size(bytes_xfrd)} / {_fmt_size(remaining)}"
+                eta_str = _fmt_eta(eta)
+            elif status == "completed":
+                transfer_str = _fmt_size(size_bytes)
+                eta_str = "—"
+            else:
+                transfer_str = f"— / {_fmt_size(size_bytes)}"
+                eta_str = "—"
+
             table.add_row(
                 rec.name,
                 rec.robot_name,
@@ -100,7 +126,8 @@ class TuiManager:
                 _fmt_duration(rec.duration_seconds),
                 Text(status, style=style),
                 pct_str,
-                _fmt_eta(eta) if status == "uploading" else "—",
+                transfer_str,
+                eta_str,
             )
 
         panel = Panel(table, title="[bold]Liftboy — Recording Upload", border_style="dim blue")
@@ -112,15 +139,31 @@ class TuiManager:
         status: str,
         progress_pct: float,
         eta_secs: float | None = None,
+        bytes_xfrd: int = 0,
+        size_bytes: int | None = None,
+        speed_bps: float | None = None,
     ) -> None:
-        self._state[name] = (status, progress_pct, eta_secs)
+        prev = self._state[name]
+        sz = size_bytes if size_bytes is not None else prev[4]
+        self._state[name] = (status, progress_pct, eta_secs, bytes_xfrd, sz, speed_bps)
+
         transferred = sum(
-            self._size_bytes[n] if s == "completed"
-            else int(self._size_bytes[n] * pct / 100)
-            for n, (s, pct, _) in self._state.items()
-            if s in ("completed", "uploading")
+            s[4] if s[0] == "completed"
+            else s[3]
+            for s in self._state.values()
+            if s[0] in ("completed", "uploading")
         )
-        self._overall_progress.update(self._overall_task, completed=transferred)
+        # Sum speed across active uploads for the overall speed display
+        total_speed = sum(
+            s[5] for s in self._state.values()
+            if s[0] == "uploading" and s[5] is not None
+        )
+        self._overall_progress.update(
+            self._overall_task,
+            completed=transferred,
+            # Rich uses speed for TimeRemainingColumn and TransferSpeedColumn
+            **{"speed": total_speed if total_speed > 0 else None},
+        )
         self._live.update(self._render())
 
     def __enter__(self) -> "TuiManager":
