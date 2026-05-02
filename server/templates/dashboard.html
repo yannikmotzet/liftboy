@@ -25,39 +25,33 @@
   <div style="font-size:0.72rem;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.75rem;">Fleet Status</div>
   <div style="display:flex;gap:1rem;flex-wrap:wrap;">
     {% for s in client_summaries %}
-    <div class="stat" style="min-width:280px;flex:1;">
-      <div style="font-size:0.85rem;font-weight:600;color:#c4c9e8;margin-bottom:0.5rem;font-family:monospace;">{{ s.client_id }}</div>
-      {% if s.uploading %}
-        <div style="font-size:0.8rem;color:#60a5fa;margin-bottom:0.25rem;">
-          ↑ {{ s.uploading.name }}
-        </div>
-        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
-          <progress max="100" value="{{ s.uploading.progress_pct | round(1) if s.uploading.progress_pct else 0 }}" style="width:120px;"></progress>
-          <span style="font-size:0.8rem;color:#94a3b8;">{{ "%.1f"|format(s.uploading.progress_pct) if s.uploading.progress_pct else "0.0" }}%</span>
-          {% if s.uploading.eta_seconds is not none %}
-            {% set h = (s.uploading.eta_seconds // 3600) | int %}
-            {% set m = ((s.uploading.eta_seconds % 3600) // 60) | int %}
-            {% set sec = (s.uploading.eta_seconds % 60) | int %}
-            <span style="font-size:0.8rem;color:#64748b;">ETA {{ "%02d:%02d:%02d"|format(h,m,sec) }}</span>
-          {% endif %}
-        </div>
-      {% else %}
-        <div style="font-size:0.8rem;color:#4b5563;margin-bottom:0.4rem;">idle</div>
-      {% endif %}
-      <div style="font-size:0.78rem;color:#64748b;">
+    <div class="stat" style="min-width:260px;flex:1;">
+      <div style="font-size:0.85rem;font-weight:600;color:#c4c9e8;margin-bottom:0.6rem;font-family:monospace;">{{ s.client_id }}</div>
+      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
+        <progress max="100" value="{{ s.overall_pct | round(1) }}" style="width:120px;"></progress>
+        <span style="font-size:0.8rem;color:#94a3b8;">{{ "%.1f"|format(s.overall_pct) }}%</span>
+      </div>
+      <div style="font-size:0.78rem;color:#64748b;display:flex;flex-direction:column;gap:0.2rem;">
+        {% if s.total_eta_seconds is not none %}
+          {% set h = (s.total_eta_seconds // 3600) | int %}
+          {% set m = ((s.total_eta_seconds % 3600) // 60) | int %}
+          {% set sec = (s.total_eta_seconds % 60) | int %}
+          <span>ETA {{ "%02d:%02d:%02d"|format(h,m,sec) }}</span>
+        {% endif %}
+        {% if s.elapsed_seconds is not none %}
+          {% set h = (s.elapsed_seconds // 3600) | int %}
+          {% set m = ((s.elapsed_seconds % 3600) // 60) | int %}
+          {% set sec = (s.elapsed_seconds % 60) | int %}
+          <span>Running {{ "%02d:%02d:%02d"|format(h,m,sec) }}</span>
+        {% endif %}
         {% if s.pending_count > 0 %}
-          {{ s.pending_count }} pending · {{ "%.1f"|format(s.pending_bytes / 1073741824) }} GB
-          {% if s.total_eta_seconds is not none %}
-            {% set h = (s.total_eta_seconds // 3600) | int %}
-            {% set m = ((s.total_eta_seconds % 3600) // 60) | int %}
-            {% set sec = (s.total_eta_seconds % 60) | int %}
-            · est. total {{ "%02d:%02d:%02d"|format(h,m,sec) }}
-          {% endif %}
-        {% else %}
-          no pending recordings
+          <span>{{ s.pending_count }} pending · {{ "%.1f"|format(s.pending_bytes / 1073741824) }} GB</span>
         {% endif %}
         {% if s.interrupted_count > 0 %}
-          · <span style="color:#fb923c;">{{ s.interrupted_count }} interrupted</span>
+          <span style="color:#fb923c;">{{ s.interrupted_count }} interrupted</span>
+        {% endif %}
+        {% if not s.uploading %}
+          <span style="color:#4b5563;">idle</span>
         {% endif %}
       </div>
     </div>
@@ -100,6 +94,7 @@
     <tr>
       <th>Name</th>
       <th>Robot</th>
+      <th>Client</th>
       <th>Size</th>
       <th>Duration</th>
       <th>Status</th>
@@ -113,6 +108,7 @@
     <tr>
       <td class="name-cell">{{ rec.name }}</td>
       <td class="robot-cell">{{ rec.robot_name }}</td>
+      <td class="mono" style="font-size:0.8rem;color:#94a3b8;">{{ rec.client_host or '—' }}</td>
       <td class="mono">{{ (rec.size_bytes / 1073741824) | round(2) }} GB</td>
       <td class="mono">
         {% if rec.duration_seconds %}
@@ -210,6 +206,7 @@
     return `<tr>
       <td class="name-cell">${rec.name}</td>
       <td class="robot-cell">${rec.robot_name}</td>
+      <td class="mono" style="font-size:0.8rem;color:#94a3b8;">${rec.client_host || '—'}</td>
       <td class="mono">${fmtSize(rec.size_bytes)}</td>
       <td class="mono">${fmtHMS(rec.duration_seconds)}</td>
       <td><span class="badge badge-${rec.status}">${rec.status}</span></td>
@@ -219,31 +216,26 @@
     </tr>`;
   }
 
-  function fmtFleetProgress(rec) {
-    if (!rec) return '<span style="font-size:0.8rem;color:#4b5563;">idle</span>';
-    const pct = rec.progress_pct != null ? rec.progress_pct.toFixed(1) : '0.0';
-    const etaStr = rec.eta_seconds != null
-      ? ' <span style="font-size:0.8rem;color:#64748b;">ETA ' + fmtHMS(rec.eta_seconds) + '</span>'
-      : '';
-    return `<div style="font-size:0.8rem;color:#60a5fa;margin-bottom:0.25rem;">↑ ${rec.name}</div>
-      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
-        <progress max="100" value="${pct}" style="width:120px;"></progress>
-        <span style="font-size:0.8rem;color:#94a3b8;">${pct}%</span>${etaStr}
-      </div>`;
-  }
-
   function buildFleetCard(s) {
-    const pendingLine = s.pending_count > 0
-      ? `${s.pending_count} pending · ${(s.pending_bytes / 1073741824).toFixed(1)} GB`
-        + (s.total_eta_seconds != null ? ` · est. total ${fmtHMS(s.total_eta_seconds)}` : '')
-      : 'no pending recordings';
-    const interruptedLine = s.interrupted_count > 0
-      ? ` · <span style="color:#fb923c;">${s.interrupted_count} interrupted</span>`
-      : '';
-    return `<div class="stat" style="min-width:280px;flex:1;">
-      <div style="font-size:0.85rem;font-weight:600;color:#c4c9e8;margin-bottom:0.5rem;font-family:monospace;">${s.client_id}</div>
-      ${fmtFleetProgress(s.uploading)}
-      <div style="font-size:0.78rem;color:#64748b;">${pendingLine}${interruptedLine}</div>
+    const pct = s.overall_pct != null ? s.overall_pct.toFixed(1) : '0.0';
+    const lines = [];
+    if (s.total_eta_seconds != null) lines.push(`ETA ${fmtHMS(s.total_eta_seconds)}`);
+    if (s.elapsed_seconds   != null) lines.push(`Running ${fmtHMS(s.elapsed_seconds)}`);
+    if (s.pending_count > 0)
+      lines.push(`${s.pending_count} pending · ${(s.pending_bytes / 1073741824).toFixed(1)} GB`);
+    if (s.interrupted_count > 0)
+      lines.push(`<span style="color:#fb923c;">${s.interrupted_count} interrupted</span>`);
+    if (!s.uploading)
+      lines.push('<span style="color:#4b5563;">idle</span>');
+    return `<div class="stat" style="min-width:260px;flex:1;">
+      <div style="font-size:0.85rem;font-weight:600;color:#c4c9e8;margin-bottom:0.6rem;font-family:monospace;">${s.client_id}</div>
+      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
+        <progress max="100" value="${pct}" style="width:120px;"></progress>
+        <span style="font-size:0.8rem;color:#94a3b8;">${pct}%</span>
+      </div>
+      <div style="font-size:0.78rem;color:#64748b;display:flex;flex-direction:column;gap:0.2rem;">
+        ${lines.map(l => `<span>${l}</span>`).join('')}
+      </div>
     </div>`;
   }
 
