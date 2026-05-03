@@ -106,10 +106,19 @@
     .col-picker-menu label:hover { background: #252840; }
 
     /* per-column hiding via class on <table> */
-    #recordings-table.hide-client   [data-col=client]     { display: none; }
-    #recordings-table.hide-duration [data-col=duration]   { display: none; }
-    #recordings-table.hide-transfer [data-col=transfer]   { display: none; }
-    #recordings-table.hide-registered [data-col=registered] { display: none; }
+    #recordings-table.hide-name       [data-col=name]       { display: none; }
+    #recordings-table.hide-start-time [data-col=start-time] { display: none; }
+    #recordings-table.hide-duration   [data-col=duration]   { display: none; }
+    #recordings-table.hide-size       [data-col=size]       { display: none; }
+    #recordings-table.hide-robot      [data-col=robot]      { display: none; }
+    #recordings-table.hide-client     [data-col=client]     { display: none; }
+    #recordings-table.hide-status     [data-col=status]     { display: none; }
+    #recordings-table.hide-progress   [data-col=progress]   { display: none; }
+    #recordings-table.hide-transfer   [data-col=transfer]   { display: none; }
+    #recordings-table.hide-eta        [data-col=eta]        { display: none; }
+    #recordings-table.hide-registered   [data-col=registered]   { display: none; }
+    #recordings-table.hide-topics      [data-col=topics]       { display: none; }
+    #recordings-table.hide-messages    [data-col=messages]     { display: none; }
 
     table {
       width: 100%;
@@ -168,6 +177,25 @@
     .robot-cell { color: #94a3b8; }
     .mono { font-family: monospace; }
     .dim { color: #4b5563; }
+
+    /* Prevent cell text from wrapping — keeps column widths stable */
+    td { white-space: nowrap; overflow: hidden; }
+    td[data-col="name"] { max-width: 300px; text-overflow: ellipsis; }
+
+    /* Fixed minimum widths for dynamic columns — prevents layout jumping */
+    th[data-col="start-time"], td[data-col="start-time"] { min-width: 148px; font-size: 0.78rem; }
+    th[data-col="duration"],   td[data-col="duration"]   { min-width: 80px; }
+    th[data-col="size"],       td[data-col="size"]        { min-width: 72px; }
+    th[data-col="status"],     td[data-col="status"]      { min-width: 98px; }
+    th[data-col="progress"],   td[data-col="progress"]    { min-width: 140px; }
+    th[data-col="transfer"],   td[data-col="transfer"]    { min-width: 158px; }
+    th[data-col="eta"],        td[data-col="eta"]         { min-width: 76px; }
+    th[data-col="topics"],     td[data-col="topics"]      { min-width: 58px; text-align: right; }
+    th[data-col="messages"],   td[data-col="messages"]    { min-width: 72px; text-align: right; }
+
+    /* Column-specific styles (avoids inline style on every cell) */
+    td[data-col="client"]     { font-size: 0.8rem; color: #94a3b8; }
+    td[data-col="registered"] { font-size: 0.78rem; color: #64748b; }
 
     .empty-state {
       text-align: center;

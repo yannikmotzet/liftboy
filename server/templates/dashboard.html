@@ -90,17 +90,7 @@
 {% endif %}
 
 {# ── Filters ───────────────────────────────────────────────────────────────── #}
-<details class="col-picker" id="col-picker">
-  <summary>Columns ▾</summary>
-  <div class="col-picker-menu">
-    <label><input type="checkbox" data-col="client"     checked> Client</label>
-    <label><input type="checkbox" data-col="duration"   checked> Duration</label>
-    <label><input type="checkbox" data-col="transfer"   checked> Transfer</label>
-    <label><input type="checkbox" data-col="registered"        > Registered</label>
-  </div>
-</details>
-
-<form class="filters" method="get" action="/" style="margin-top:0.75rem;">
+<form class="filters" method="get" action="/">
   <select name="robot" id="robot-filter">
     <option value="">All robots</option>
     {% for r in robots %}
@@ -115,6 +105,24 @@
     {% endfor %}
   </select>
   <button type="submit">Filter</button>
+  <details class="col-picker" id="col-picker">
+    <summary>Columns ▾</summary>
+    <div class="col-picker-menu">
+      <label><input type="checkbox" data-col="name"       checked> Name</label>
+      <label><input type="checkbox" data-col="start-time" checked> Start Time</label>
+      <label><input type="checkbox" data-col="duration"   checked> Duration</label>
+      <label><input type="checkbox" data-col="size"       checked> Size</label>
+      <label><input type="checkbox" data-col="robot"      checked> Robot</label>
+      <label><input type="checkbox" data-col="client"     checked> Client</label>
+      <label><input type="checkbox" data-col="status"     checked> Status</label>
+      <label><input type="checkbox" data-col="progress"   checked> Progress</label>
+      <label><input type="checkbox" data-col="transfer"   checked> Transfer</label>
+      <label><input type="checkbox" data-col="eta"        checked> ETA</label>
+      <label><input type="checkbox" data-col="topics"            > Topics</label>
+      <label><input type="checkbox" data-col="messages"          > Messages</label>
+      <label><input type="checkbox" data-col="registered"        > Registered</label>
+    </div>
+  </details>
   {% if filter_robot or filter_status %}
     <a class="reset" href="/">Clear</a>
   {% endif %}
@@ -126,26 +134,28 @@
 <table id="recordings-table">
   <thead>
     <tr>
-      <th>Name</th>
-      <th>Robot</th>
-      <th data-col="client">Client</th>
-      <th>Size</th>
+      <th data-col="name">Name</th>
+      <th data-col="start-time">Start Time</th>
       <th data-col="duration">Duration</th>
-      <th>Status</th>
-      <th>Progress</th>
+      <th data-col="size">Size</th>
+      <th data-col="robot">Robot</th>
+      <th data-col="client">Client</th>
+      <th data-col="status">Status</th>
+      <th data-col="progress">Progress</th>
       <th data-col="transfer">Transfer</th>
-      <th>ETA</th>
-      <th>Start Time</th>
+      <th data-col="eta">ETA</th>
+      <th data-col="topics">Topics</th>
+      <th data-col="messages">Messages</th>
       <th data-col="registered">Registered</th>
     </tr>
   </thead>
   <tbody id="recordings-tbody">
     {% for rec in recordings %}
-    <tr>
-      <td class="name-cell">{{ rec.name }}</td>
-      <td class="robot-cell">{{ rec.robot_name }}</td>
-      <td class="mono" data-col="client" style="font-size:0.8rem;color:#94a3b8;">{{ rec.client_host or '—' }}</td>
-      <td class="mono">{{ "%.2f"|format(rec.size_bytes / 1073741824) }} GB</td>
+    <tr data-id="{{ rec.id }}">
+      <td class="name-cell" data-col="name">{{ rec.name }}</td>
+      <td class="mono" data-col="start-time">
+        {{ rec.start_time.strftime("%Y-%m-%d %H:%M:%S") if rec.start_time else "—" }}
+      </td>
       <td class="mono" data-col="duration">
         {% if rec.duration_seconds %}
           {% set h = (rec.duration_seconds // 3600) | int %}
@@ -156,10 +166,19 @@
           <span class="dim">—</span>
         {% endif %}
       </td>
-      <td>
+      <td class="mono" data-col="size">
+        {%- set sz = rec.size_bytes -%}
+        {%- if sz >= 1073741824 -%}{{ "%.1f"|format(sz / 1073741824) }} GB
+        {%- elif sz >= 1048576   -%}{{ "%.1f"|format(sz / 1048576) }} MB
+        {%- else                 -%}{{ "%.1f"|format(sz / 1024) }} KB
+        {%- endif -%}
+      </td>
+      <td class="robot-cell" data-col="robot">{{ rec.robot_name }}</td>
+      <td class="mono" data-col="client">{{ rec.client_host or '—' }}</td>
+      <td data-col="status">
         <span class="badge badge-{{ rec.status }}">{{ rec.status }}</span>
       </td>
-      <td>
+      <td data-col="progress">
         {% if rec.status == "uploading" and rec.progress_pct is not none %}
           <progress max="100" value="{{ rec.progress_pct | round(1) }}"></progress>
           <span class="progress-label">{{ rec.progress_pct | round(1) }}%</span>
@@ -195,7 +214,7 @@
           <span class="dim">—</span>
         {% endif %}
       </td>
-      <td class="mono">
+      <td class="mono" data-col="eta">
         {% if rec.eta_seconds is not none and rec.status == "uploading" %}
           {% set h = (rec.eta_seconds // 3600) | int %}
           {% set m = ((rec.eta_seconds % 3600) // 60) | int %}
@@ -205,10 +224,13 @@
           <span class="dim">—</span>
         {% endif %}
       </td>
-      <td class="mono" style="font-size:0.78rem;">
-        {{ rec.start_time.strftime("%Y-%m-%d %H:%M") if rec.start_time else "—" }}
+      <td class="mono" data-col="topics">
+        {{ rec.extra_metadata['topic_count'] if rec.extra_metadata and 'topic_count' in rec.extra_metadata else '—' }}
       </td>
-      <td class="mono" data-col="registered" style="font-size:0.78rem;color:#64748b;">
+      <td class="mono" data-col="messages">
+        {{ rec.extra_metadata['message_count'] if rec.extra_metadata and 'message_count' in rec.extra_metadata else '—' }}
+      </td>
+      <td class="mono" data-col="registered">
         {{ rec.registered_at.strftime("%Y-%m-%d %H:%M") if rec.registered_at else "—" }}
       </td>
     </tr>
@@ -275,7 +297,8 @@
       String(d.getMonth()+1).padStart(2,'0') + '-' +
       String(d.getDate()).padStart(2,'0') + ' ' +
       String(d.getHours()).padStart(2,'0') + ':' +
-      String(d.getMinutes()).padStart(2,'0');
+      String(d.getMinutes()).padStart(2,'0') + ':' +
+      String(d.getSeconds()).padStart(2,'0');
   }
 
   function progressCell(rec) {
@@ -289,20 +312,69 @@
     return `<span class="dim">—</span>`;
   }
 
-  function buildRow(rec) {
-    return `<tr>
-      <td class="name-cell">${rec.name}</td>
-      <td class="robot-cell">${rec.robot_name}</td>
-      <td class="mono" data-col="client" style="font-size:0.8rem;color:#94a3b8;">${rec.client_host || '—'}</td>
-      <td class="mono">${fmtSize(rec.size_bytes)}</td>
-      <td class="mono" data-col="duration">${fmtHMS(rec.duration_seconds)}</td>
-      <td><span class="badge badge-${rec.status}">${rec.status}</span></td>
-      <td>${progressCell(rec)}</td>
-      <td class="mono" data-col="transfer">${fmtTransferCell(rec)}</td>
-      <td class="mono">${rec.status === 'uploading' ? fmtHMS(rec.eta_seconds) : '<span class="dim">—</span>'}</td>
-      <td class="mono" style="font-size:0.78rem;">${fmtDate(rec.start_time)}</td>
-      <td class="mono" data-col="registered" style="font-size:0.78rem;color:#64748b;">${fmtDate(rec.registered_at)}</td>
-    </tr>`;
+  function cellContents(rec) {
+    return {
+      'name':       rec.name,
+      'start-time': fmtDate(rec.start_time),
+      'duration':   fmtHMS(rec.duration_seconds),
+      'size':       fmtSize(rec.size_bytes),
+      'robot':      rec.robot_name || '—',
+      'client':     rec.client_host || '—',
+      'status':     `<span class="badge badge-${rec.status}">${rec.status}</span>`,
+      'progress':   progressCell(rec),
+      'transfer':   fmtTransferCell(rec),
+      'eta':        rec.status === 'uploading' ? fmtHMS(rec.eta_seconds) : '<span class="dim">—</span>',
+      'topics':     rec.extra_metadata?.topic_count != null ? String(rec.extra_metadata.topic_count) : '<span class="dim">—</span>',
+      'messages':   rec.extra_metadata?.message_count != null ? String(rec.extra_metadata.message_count) : '<span class="dim">—</span>',
+      'registered': fmtDate(rec.registered_at),
+    };
+  }
+
+  function applyToRow(tr, rec) {
+    const contents = cellContents(rec);
+    for (const [col, html] of Object.entries(contents)) {
+      const td = tr.querySelector(`td[data-col="${col}"]`);
+      if (td) td.innerHTML = html;
+    }
+  }
+
+  function createRow(rec) {
+    const tr = document.createElement('tr');
+    tr.dataset.id = String(rec.id);
+    [['name','name-cell'],['start-time','mono'],['duration','mono'],['size','mono'],
+     ['robot','robot-cell'],['client','mono'],['status',''],['progress',''],
+     ['transfer','mono'],['eta','mono'],['topics','mono'],['messages','mono'],['registered','mono'],
+    ].forEach(([col, cls]) => {
+      const td = document.createElement('td');
+      td.dataset.col = col;
+      if (cls) td.className = cls;
+      tr.appendChild(td);
+    });
+    applyToRow(tr, rec);
+    return tr;
+  }
+
+  function updateTableBody(data) {
+    const tbody = document.getElementById('recordings-tbody');
+    if (!tbody) { if (data.length) location.reload(); return; }
+
+    const existing = new Map();
+    tbody.querySelectorAll('tr[data-id]').forEach(tr => existing.set(tr.dataset.id, tr));
+
+    data.forEach((rec, idx) => {
+      const id = String(rec.id);
+      let tr = existing.get(id);
+      if (tr) {
+        applyToRow(tr, rec);
+        existing.delete(id);
+      } else {
+        tr = createRow(rec);
+      }
+      const atPos = tbody.children[idx];
+      if (atPos !== tr) tbody.insertBefore(tr, atPos || null);
+    });
+
+    existing.forEach(tr => tr.remove());
   }
 
   function buildFleetCard(s) {
@@ -365,12 +437,7 @@
         if (el) el.textContent = val;
       }
 
-      const tbody = document.getElementById('recordings-tbody');
-      if (tbody) {
-        tbody.innerHTML = data.map(buildRow).join('');
-      } else if (data.length > 0) {
-        location.reload();
-      }
+      updateTableBody(data);
     }
 
     // Update fleet cards
@@ -409,9 +476,18 @@
 
   // ── Column picker ──────────────────────────────────────────────────────────
   const COLS = [
-    { key: 'client',     def: true },
+    { key: 'name',       def: true },
+    { key: 'start-time', def: true },
     { key: 'duration',   def: true },
+    { key: 'size',       def: true },
+    { key: 'robot',      def: true },
+    { key: 'client',     def: true },
+    { key: 'status',     def: true },
+    { key: 'progress',   def: true },
     { key: 'transfer',   def: true },
+    { key: 'eta',        def: true },
+    { key: 'topics',     def: false },
+    { key: 'messages',   def: false },
     { key: 'registered', def: false },
   ];
   const LS_KEY = 'liftboy_col_visibility';
