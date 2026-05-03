@@ -136,30 +136,49 @@ def mark_stale_uploads_interrupted(db: Session, timeout_seconds: int) -> int:
 def get_client_summaries(db: Session) -> list[dict]:
     from collections import defaultdict
 
+    # Fetch all non-terminal-failed recordings for active clients.
+    # We need completed recordings too so progress doesn't reset between uploads.
     recs = (
         db.query(Recording)
         .filter(
             Recording.client_host.isnot(None),
-            Recording.status.in_(["pending", "uploading", "interrupted"]),
+            Recording.status.in_(["pending", "uploading", "interrupted", "completed"]),
         )
         .all()
     )
 
+    # Only show a client card if it has at least one non-completed recording.
+    active_clients: set[str] = set()
+    for rec in recs:
+        if rec.status != "completed":
+            active_clients.add(rec.client_host)
+
     clients: dict[str, dict] = defaultdict(
-        lambda: {"uploading": None, "pending": [], "interrupted": []}
+        lambda: {"uploading": None, "pending": [], "interrupted": [], "completed_bytes": 0, "session_start": None}
     )
     for rec in recs:
+        host = rec.client_host
+        if host not in active_clients:
+            continue
         if rec.status == "uploading":
-            clients[rec.client_host]["uploading"] = rec
+            clients[host]["uploading"] = rec
         elif rec.status == "pending":
-            clients[rec.client_host]["pending"].append(rec)
-        else:
-            clients[rec.client_host]["interrupted"].append(rec)
+            clients[host]["pending"].append(rec)
+        elif rec.status == "interrupted":
+            clients[host]["interrupted"].append(rec)
+        elif rec.status == "completed":
+            clients[host]["completed_bytes"] += rec.size_bytes
+        # Track earliest registration as session start
+        ra = rec.registered_at
+        prev = clients[host]["session_start"]
+        if prev is None or ra < prev:
+            clients[host]["session_start"] = ra
 
     result = []
     for client_id, data in clients.items():
         uploading = data["uploading"]
         pending_bytes = sum(r.size_bytes for r in data["pending"])
+        completed_bytes = data["completed_bytes"]
 
         # Estimate total remaining time using current rsync transfer speed:
         # speed = remaining_active_bytes / active_eta_seconds
@@ -176,23 +195,19 @@ def get_client_summaries(db: Session) -> list[dict]:
                 speed = remaining_active / uploading.eta_seconds
                 total_eta = uploading.eta_seconds + pending_bytes / speed
 
-        # Overall percentage across all bytes this client still needs to transfer
-        total_bytes = (uploading.size_bytes if uploading else 0) + pending_bytes
-        transferred = (uploading.bytes_transferred or 0) if uploading else 0
+        # Overall percentage across all bytes this client needs to transfer this session
+        active_transferred = (uploading.bytes_transferred or 0) if uploading else 0
+        total_bytes = (uploading.size_bytes if uploading else 0) + pending_bytes + completed_bytes
+        transferred = active_transferred + completed_bytes
         overall_pct = transferred / total_bytes * 100 if total_bytes > 0 else 0.0
 
-        # Elapsed time estimate: transferred / speed = transferred * eta / remaining
+        # Wall-clock elapsed time since session start (monotonically increasing, no reset between recordings)
+        session_start = data["session_start"]
         elapsed_seconds = None
-        if (
-            uploading
-            and uploading.eta_seconds is not None
-            and uploading.progress_pct is not None
-            and uploading.eta_seconds > 0
-            and transferred > 0
-        ):
-            remaining_active = uploading.size_bytes * (1 - uploading.progress_pct / 100)
-            if remaining_active > 0:
-                elapsed_seconds = transferred * uploading.eta_seconds / remaining_active
+        if session_start is not None:
+            now = datetime.now(timezone.utc)
+            ts = session_start if session_start.tzinfo else session_start.replace(tzinfo=timezone.utc)
+            elapsed_seconds = (now - ts).total_seconds()
 
         result.append({
             "client_id": client_id,
