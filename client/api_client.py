@@ -79,6 +79,11 @@ class LiftboyApiClient:
             username = os.environ.get("USER", os.environ.get("USERNAME", "unknown"))
         host = f"{username}@{hostname}"
 
+        base_fields = set(RecordingMetadata.model_fields.keys())
+        all_fields = meta.model_dump()
+        extra = {k: v for k, v in all_fields.items() if k not in base_fields}
+        extra.update(meta.model_extra or {})
+
         req = RegisterRecordingRequest(
             name=meta.name,
             robot_name=meta.robot_name,
@@ -86,7 +91,7 @@ class LiftboyApiClient:
             duration_seconds=meta.duration_seconds,
             size_bytes=meta.size_bytes,
             client_host=host,
-            extra_metadata=meta.model_extra or None,
+            extra_metadata=extra or None,
         )
         resp = self._post("/recordings", req.model_dump(mode="json"))
         if resp is not None:

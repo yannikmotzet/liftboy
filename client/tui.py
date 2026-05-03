@@ -43,6 +43,15 @@ def _fmt_size(b: int) -> str:
     return f"{b / 1024:.1f} KB"
 
 
+def _fmt_start_time(dt: object) -> str:
+    if dt is None:
+        return "—"
+    from datetime import datetime
+    if isinstance(dt, datetime):
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
+    return str(dt)
+
+
 def _fmt_duration(secs: float | None) -> str:
     if secs is None:
         return "—"
@@ -108,9 +117,10 @@ class TuiManager:
             expand=True,
         )
         table.add_column("Recording", style="cyan", no_wrap=True)
-        table.add_column("Robot", style="dim")
-        table.add_column("Size", justify="right")
+        table.add_column("Start Time", style="dim", no_wrap=True)
         table.add_column("Duration", justify="right")
+        table.add_column("Size", justify="right")
+        table.add_column("Robot", style="dim")
         table.add_column("Status", justify="center")
         table.add_column("Progress", justify="right")
         table.add_column("Transfer", justify="right")
@@ -134,9 +144,10 @@ class TuiManager:
 
             table.add_row(
                 rec.name,
-                rec.robot_name,
-                _fmt_size(rec.size_bytes),
+                _fmt_start_time(rec.start_time),
                 _fmt_duration(rec.duration_seconds),
+                _fmt_size(rec.size_bytes),
+                rec.robot_name,
                 Text(status, style=style),
                 pct_str,
                 transfer_str,
