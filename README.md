@@ -8,6 +8,18 @@ Liftboy manages the full lifecycle of robotics sensor recordings across distribu
 
 ---
 
+## Screenshots
+
+**Web dashboard**
+
+![Dashboard](assets/screenshot_dashboard.png)
+
+**TUI (terminal client)**
+
+![TUI](assets/screenshot_tui.png)
+
+---
+
 ## Overview
 
 Robot PCs record sensor data locally (e.g. ROS2 mcap files). When you run `liftboy-client`, it discovers all recordings, registers them with the central server, and uploads them one by one via rsync while showing a live TUI progress view. The server tracks the state of every recording and exposes a read-only web dashboard for fleet-wide visibility.
@@ -17,27 +29,26 @@ Robot PCs record sensor data locally (e.g. ROS2 mcap files). When you run `liftb
 ## Architecture
 
 ```
-┌─────────────────────────────────┐         ┌──────────────────────────────────────┐
-│           Robot PC              │         │            Central Server            │
-│                                 │         │                                      │
-│  /data/recordings/              │  REST   │  FastAPI                             │
-│  ├── scout_2024-03-15_10-30-00/ │ ──────► │  ├── POST /recordings                │
-│  └── atlas_2024-03-15_09-00-00/ │         │  ├── PATCH /recordings/{id}/progress │
-│                                 │         │  ├── PATCH /recordings/{id}/status   │
-│  liftboy-client                 │         │  └── GET  /                          │
-│  ├── Scanner + Provider factory │         │                                      │
-│  ├── rsync uploader             │  rsync  │  SQLite DB                           │
-│  └── Rich TUI                   │ ──────► │  └── recordings table                │
-│                                 │  (to NAS)│                                     │
-└─────────────────────────────────┘         │  Web Dashboard (Jinja2)              │
-                                            │  └── http://<host>:8000/             │
-                                            └──────────────────────────────────────┘
-                                                           │
-                                                    ┌──────┴──────┐
-                                                    │  Network    │
-                                                    │  Storage    │
-                                                    │  (NAS/NFS)  │
-                                                    └─────────────┘
+┌──────────────────────────────────┐  REST API  ┌──────────────────────────────────────┐
+│            Robot PC              │ ─────────► │            Central Server            │
+│                                  │            │                                      │
+│  /data/recordings/               │            │  FastAPI                             │
+│  ├── scout_2024-03-15_10-30-00/  │            │  ├── POST /recordings                │
+│  └── atlas_2024-03-15_09-00-00/  │            │  ├── PATCH /recordings/{id}/progress │
+│                                  │            │  ├── PATCH /recordings/{id}/status   │
+│  liftboy-client                  │            │  └── GET  /                          │
+│  ├── Scanner + Provider factory  │            │                                      │
+│  ├── rsync uploader              │            │  SQLite DB                           │
+│  └── Rich TUI                    │            │  └── recordings table                │
+│                                  │            │                                      │
+└───────────────┬──────────────────┘            │  Web Dashboard (Jinja2)              │
+                │ rsync                         │  └── http://<host>:8000/             │
+                ▼                               └──────────────────────────────────────┘
+       ┌─────────────────┐
+       │  Network        │
+       │  Storage        │
+       │  (NAS/NFS)      │
+       └─────────────────┘
 ```
 
 ### Components
