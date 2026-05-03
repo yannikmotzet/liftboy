@@ -90,7 +90,17 @@
 {% endif %}
 
 {# ── Filters ───────────────────────────────────────────────────────────────── #}
-<form class="filters" method="get" action="/">
+<details class="col-picker" id="col-picker">
+  <summary>Columns ▾</summary>
+  <div class="col-picker-menu">
+    <label><input type="checkbox" data-col="client"     checked> Client</label>
+    <label><input type="checkbox" data-col="duration"   checked> Duration</label>
+    <label><input type="checkbox" data-col="transfer"   checked> Transfer</label>
+    <label><input type="checkbox" data-col="registered"        > Registered</label>
+  </div>
+</details>
+
+<form class="filters" method="get" action="/" style="margin-top:0.75rem;">
   <select name="robot" id="robot-filter">
     <option value="">All robots</option>
     {% for r in robots %}
@@ -113,19 +123,20 @@
 {# ── Table ─────────────────────────────────────────────────────────────────── #}
 <div id="table-container">
 {% if recordings %}
-<table>
+<table id="recordings-table">
   <thead>
     <tr>
       <th>Name</th>
       <th>Robot</th>
-      <th>Client</th>
+      <th data-col="client">Client</th>
       <th>Size</th>
-      <th>Duration</th>
+      <th data-col="duration">Duration</th>
       <th>Status</th>
       <th>Progress</th>
-      <th>Transfer</th>
+      <th data-col="transfer">Transfer</th>
       <th>ETA</th>
-      <th>Registered</th>
+      <th>Start Time</th>
+      <th data-col="registered">Registered</th>
     </tr>
   </thead>
   <tbody id="recordings-tbody">
@@ -133,9 +144,9 @@
     <tr>
       <td class="name-cell">{{ rec.name }}</td>
       <td class="robot-cell">{{ rec.robot_name }}</td>
-      <td class="mono" style="font-size:0.8rem;color:#94a3b8;">{{ rec.client_host or '—' }}</td>
-      <td class="mono">{{ (rec.size_bytes / 1073741824) | round(2) }} GB</td>
-      <td class="mono">
+      <td class="mono" data-col="client" style="font-size:0.8rem;color:#94a3b8;">{{ rec.client_host or '—' }}</td>
+      <td class="mono">{{ "%.2f"|format(rec.size_bytes / 1073741824) }} GB</td>
+      <td class="mono" data-col="duration">
         {% if rec.duration_seconds %}
           {% set h = (rec.duration_seconds // 3600) | int %}
           {% set m = ((rec.duration_seconds % 3600) // 60) | int %}
@@ -159,7 +170,7 @@
           <span class="dim">—</span>
         {% endif %}
       </td>
-      <td class="mono">
+      <td class="mono" data-col="transfer">
         {% if rec.status == "uploading" and rec.bytes_transferred is not none %}
           {%- set tot = rec.size_bytes -%}
           {%- set xfr = rec.bytes_transferred -%}
@@ -194,7 +205,10 @@
           <span class="dim">—</span>
         {% endif %}
       </td>
-      <td class="mono" style="font-size:0.78rem; color:#64748b;">
+      <td class="mono" style="font-size:0.78rem;">
+        {{ rec.start_time.strftime("%Y-%m-%d %H:%M") if rec.start_time else "—" }}
+      </td>
+      <td class="mono" data-col="registered" style="font-size:0.78rem;color:#64748b;">
         {{ rec.registered_at.strftime("%Y-%m-%d %H:%M") if rec.registered_at else "—" }}
       </td>
     </tr>
@@ -279,14 +293,15 @@
     return `<tr>
       <td class="name-cell">${rec.name}</td>
       <td class="robot-cell">${rec.robot_name}</td>
-      <td class="mono" style="font-size:0.8rem;color:#94a3b8;">${rec.client_host || '—'}</td>
+      <td class="mono" data-col="client" style="font-size:0.8rem;color:#94a3b8;">${rec.client_host || '—'}</td>
       <td class="mono">${fmtSize(rec.size_bytes)}</td>
-      <td class="mono">${fmtHMS(rec.duration_seconds)}</td>
+      <td class="mono" data-col="duration">${fmtHMS(rec.duration_seconds)}</td>
       <td><span class="badge badge-${rec.status}">${rec.status}</span></td>
       <td>${progressCell(rec)}</td>
-      <td class="mono">${fmtTransferCell(rec)}</td>
+      <td class="mono" data-col="transfer">${fmtTransferCell(rec)}</td>
       <td class="mono">${rec.status === 'uploading' ? fmtHMS(rec.eta_seconds) : '<span class="dim">—</span>'}</td>
-      <td class="mono" style="font-size:0.78rem;color:#64748b;">${fmtDate(rec.registered_at)}</td>
+      <td class="mono" style="font-size:0.78rem;">${fmtDate(rec.start_time)}</td>
+      <td class="mono" data-col="registered" style="font-size:0.78rem;color:#64748b;">${fmtDate(rec.registered_at)}</td>
     </tr>`;
   }
 
@@ -391,6 +406,50 @@
   }
 
   setInterval(refresh, INTERVAL_MS);
+
+  // ── Column picker ──────────────────────────────────────────────────────────
+  const COLS = [
+    { key: 'client',     def: true },
+    { key: 'duration',   def: true },
+    { key: 'transfer',   def: true },
+    { key: 'registered', def: false },
+  ];
+  const LS_KEY = 'liftboy_col_visibility';
+  const table  = document.getElementById('recordings-table');
+
+  function applyColVisibility(prefs) {
+    if (!table) return;
+    COLS.forEach(c => {
+      const visible = prefs[c.key] ?? c.def;
+      table.classList.toggle('hide-' + c.key, !visible);
+    });
+  }
+
+  function loadPrefs() {
+    try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); }
+    catch { return {}; }
+  }
+
+  // Init checkboxes + table state from localStorage
+  const prefs = loadPrefs();
+  applyColVisibility(prefs);
+  document.querySelectorAll('#col-picker input[data-col]').forEach(cb => {
+    const key = cb.dataset.col;
+    const col = COLS.find(c => c.key === key);
+    cb.checked = prefs[key] ?? col?.def ?? true;
+    cb.addEventListener('change', () => {
+      const p = loadPrefs();
+      p[key] = cb.checked;
+      localStorage.setItem(LS_KEY, JSON.stringify(p));
+      applyColVisibility(p);
+    });
+  });
+
+  // Close picker when clicking outside
+  document.addEventListener('click', e => {
+    const picker = document.getElementById('col-picker');
+    if (picker && !picker.contains(e.target)) picker.removeAttribute('open');
+  });
 })();
 </script>
 

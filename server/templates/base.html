@@ -66,6 +66,51 @@
     }
     .filters a.reset:hover { color: #94a3b8; }
 
+    /* column visibility toggle */
+    .col-picker { position: relative; }
+    .col-picker summary {
+      list-style: none;
+      background: #1a1d27;
+      border: 1px solid #2d3148;
+      color: #94a3b8;
+      padding: 0.3rem 0.75rem;
+      border-radius: 5px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      user-select: none;
+    }
+    .col-picker summary:hover { color: #e2e8f0; border-color: #4b5563; }
+    .col-picker summary::-webkit-details-marker { display: none; }
+    .col-picker-menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      background: #1a1d27;
+      border: 1px solid #2d3148;
+      border-radius: 6px;
+      padding: 0.5rem 0;
+      z-index: 100;
+      min-width: 150px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    }
+    .col-picker-menu label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.85rem;
+      font-size: 0.8rem;
+      color: #cbd5e1;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .col-picker-menu label:hover { background: #252840; }
+
+    /* per-column hiding via class on <table> */
+    #recordings-table.hide-client   [data-col=client]     { display: none; }
+    #recordings-table.hide-duration [data-col=duration]   { display: none; }
+    #recordings-table.hide-transfer [data-col=transfer]   { display: none; }
+    #recordings-table.hide-registered [data-col=registered] { display: none; }
+
     table {
       width: 100%;
       border-collapse: collapse;
