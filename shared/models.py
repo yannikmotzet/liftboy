@@ -15,6 +15,8 @@ class RecordingStatus(str, Enum):
 
 
 class RecordingMetadata(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     name: str
     robot_name: str
     start_time: datetime
@@ -29,6 +31,7 @@ class RegisterRecordingRequest(BaseModel):
     duration_seconds: float | None = None
     size_bytes: int
     client_host: str | None = None
+    extra_metadata: dict | None = None
 
 
 class UpdateProgressRequest(BaseModel):
@@ -62,3 +65,4 @@ class RecordingResponse(BaseModel):
     client_host: str | None
     error_message: str | None
     transfer_speed_bytes: float | None
+    extra_metadata: dict | None

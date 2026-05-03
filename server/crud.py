@@ -44,6 +44,7 @@ def create_or_get_recording(db: Session, req: RegisterRecordingRequest) -> Recor
         size_bytes=req.size_bytes,
         status=RecordingStatus.pending,
         client_host=req.client_host,
+        extra_metadata=req.extra_metadata,
     )
     db.add(rec)
     db.commit()

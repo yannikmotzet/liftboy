@@ -24,7 +24,7 @@ def init_db(db_path: str = "./liftboy.db") -> None:
     Base.metadata.create_all(bind=_engine)
     # migrate: add columns introduced after initial schema
     with _engine.connect() as conn:
-        for col in ("transfer_speed_bytes REAL",):
+        for col in ("transfer_speed_bytes REAL", "extra_metadata TEXT"):
             try:
                 conn.execute(text(f"ALTER TABLE recordings ADD COLUMN {col}"))
                 conn.commit()

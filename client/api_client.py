@@ -86,6 +86,7 @@ class LiftboyApiClient:
             duration_seconds=meta.duration_seconds,
             size_bytes=meta.size_bytes,
             client_host=host,
+            extra_metadata=meta.model_extra or None,
         )
         resp = self._post("/recordings", req.model_dump(mode="json"))
         if resp is not None:
